@@ -1,0 +1,31 @@
+H9to9a,H9to8a,H10to4a,H10to10a	H9to9a.txt
+D9to9a,D9to8a,D10to4a,D10to10a	D9to9a.txt
+
+H9ato9,H8ato9,H4ato10,H10ato10	H9ato9.txt
+D9ato9,D8ato9,D4ato10,D10ato10	D9ato9.txt
+
+H9ato1,H8ato8,H10ato5,H4ato4	H9ato1.txt
+D9ato1,D8ato8,D10ato5,D4ato4	D9ato1.txt
+
+H1to9a,H8to8a,H5to10a,H4to4a	H1to9a.txt
+D1to9a,D8to8a,D5to10a,D4to4a	D1to9a.txt
+
+
+H1to2,H4to3,H5to6,H8to7	H1to2.txt
+D1to2,D4to3,D5to6,D8to7	D1to2.txt
+
+H2to1,H3to4,H6to5,H7to8	H2to1.txt
+D2to1,D3to4,D6to5,D7to8	D2to1.txt
+
+H2to3,H3to2,H6to7,H7to6	H2to3.txt
+D2to3,D3to2,D6to7,D7to6	D2to3.txt
+
+H1diss,H4diss,H5diss,H8diss	diss_rate_H1.txt
+D1diss,D4diss,D5diss,D8diss	diss_rate_D1.txt
+
+H2diss,H3diss,H6diss,H7diss	diss_rate_H2.txt
+D2diss,D3diss,D6diss,D7diss	diss_rate_D2.txt
+
+H9diss,H10diss	diss_rate_H9.txt
+D9diss,D10diss	diss_rate_D9.txt
+
