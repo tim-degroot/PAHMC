@@ -1,5 +1,3 @@
-# Main file to run the simulation from
-
 import sys, getopt
 import logging
 
@@ -218,47 +216,47 @@ def Do_MC(inputfile, outputfile, cores):
 
 # -> make name output and logfile optional
 
+if __name__ == '__main__':
+    inputerror = 'error.txt'
 
-inputerror = 'error.txt'
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'o:l:')
+    except getopt.GetoptError:
+        error = open(inputerror, 'a')
+        error.write('Incorrect usage, please check documentation for correct usage.\n')
+        sys.exit(2)
 
-try:
-    opts, args = getopt.getopt(sys.argv[1:], 'o:l:')
-except getopt.GetoptError:
-    error = open(inputerror, 'a')
-    error.write('Incorrect usage, please check documentation for correct usage.\n')
-    sys.exit(2)
+    if len(args) != 2:
+        error = open(inputerror, 'a')
+        error.write('Missing arguments, 2 needed.\n')
+        sys.exit(2)
 
-if len(args) != 2:
-    error = open(inputerror, 'a')
-    error.write('Missing arguments, 2 needed.\n')
-    sys.exit(2)
-
-inputfile = args[0]
-try:
-    cores = int(args[1])
-except ValueError as err:
-    error.write('Number of cores to use must be an integer')
-    error.write(err)
-    sys.exit(2)
-    
-sim_name = inputfile.split('.')[0]
+    inputfile = args[0]
+    try:
+        cores = int(args[1])
+    except ValueError as err:
+        error.write('Number of cores to use must be an integer')
+        error.write(err)
+        sys.exit(2)
+        
+    sim_name = inputfile.split('.')[0]
 
 
-outputfile = sim_name + '.out'
-logfile = sim_name +'.log'
+    outputfile = sim_name + '.out'
+    logfile = sim_name +'.log'
 
-if opts:
-    for o, f in opts:
-        if o == '-o':
-            outputfile = f
-        if o == '-l':
-            logfile = f
+    if opts:
+        for o, f in opts:
+            if o == '-o':
+                outputfile = f
+            if o == '-l':
+                logfile = f
 
-logging.basicConfig(filename=logfile,format='%(asctime)s %(levelname)s %(name)s %(message)s', datefmt='%d/%m/%Y %H:%M:%S', level=logging.INFO)
+    logging.basicConfig(filename=logfile,format='%(asctime)s %(levelname)s %(name)s %(message)s', datefmt='%d/%m/%Y %H:%M:%S', level=logging.INFO)
 
-logger = logging.getLogger(__name__)
+    logger = logging.getLogger(__name__)
 
-Do_MC(inputfile, outputfile, cores)
+    Do_MC(inputfile, outputfile, cores)
 
-logger.info('Simulation done.')
+    logger.info('Simulation done.')
 
