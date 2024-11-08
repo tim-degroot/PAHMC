@@ -8,11 +8,11 @@ Make sure the prerequisites are installed: `numpy, matplotlib`
 
 Test to see if `rrkm.py` is functioning. The current version works with MULTWELL 2023.2.1. Depending on changes to the densum output file you might have to update the `start_line` calculation.
 
-The Python script can be made accessible by adding it to the bin and changing permission.
+The Python script can be made accessible by making it executable and adding it to the path.
 
 ```bash
-cp rrkm.py /usr/local/bin/rrkm.py
-chmod 755 /usr/local/bin/rrkm.py
+chmod +x rrkm.py
+export PATH="/path/to/PAHMC/RRKM:$PATH"
 ```
 
 ## Usage
@@ -36,5 +36,5 @@ Options:
 Example:
 
 ```bash
-rrkm.py -o /RRKM/Phenanthrene/C14H10-D9to10.txt /DFT/Phenanthrene/C14H10-D9.log /DFT/Phenanthrene/C14H10-TS-D9toD10.log /DFT/Phenanthrene/C14H10-D10.log
+rrkm.py -o /RRKM/D10to10a.txt -r /RRKM/D10ato10.txt /DFT/C14H10-D10.log /DFT/C14H10-TS-D10toD10a.log /DFT/C14H10-D10a.log
 ```

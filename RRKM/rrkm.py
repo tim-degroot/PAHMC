@@ -23,7 +23,6 @@ kb = 1.38064852e-23
 ### Gas constant (cal/K/mol)
 R = 8.3144598
 
-usestr = 'Usage: python3 rrkm.py [-qpl] [-f <sf>] [-t <temp>] [-g <grain>] [-m <max>] [-o <output>] [-r <outfile_rev>] <react> <TS> <prod>'
 outfile = 'rrkm.txt'
 
 docs = '''Usage:
