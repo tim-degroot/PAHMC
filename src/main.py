@@ -13,7 +13,6 @@ from PAHMC.Functions import Possible_reactions
 import PAHMC.Reactions as React
 from PAHMC.Functions import Choose_reaction
 from PAHMC.Input import Input_reader
-from PAHMC.RateDef import Rates
 from PAHMC.Molecule import Molecule
 from PAHMC.Ratecheck import Check_available_rates
 from PAHMC.Output import STD_Output
@@ -118,7 +117,7 @@ def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename)
 
 
 
-def Do_MC(inputfile, ratedef_file, rate_dir, outputfile, cores):
+def Do_MC(inputfile, outputfile, cores):
     """Function to perform multiple Monte Carlo simulations"""
     
     queue = mp.Queue()
@@ -126,11 +125,9 @@ def Do_MC(inputfile, ratedef_file, rate_dir, outputfile, cores):
     input = Input_reader(inputfile)
     warn_setting = input.handling
     
-    rates = Rates(ratedef_file, rate_dir)
-    
     molecule = Molecule(input)
     
-    Check_available_rates(rates, molecule, warn_setting)
+    Check_available_rates(input, molecule, warn_setting)
     
     # Initialize some variables, arrays, and dictionaries
     
@@ -161,8 +158,8 @@ def Do_MC(inputfile, ratedef_file, rate_dir, outputfile, cores):
                 dissociation_positions[Energy[k]][e_num] = 0
             for l_num in molecule.link_numbers[i]:
                 dissociation_positions[Energy[k]][l_num] = 0
-    
-         
+
+        
         if __name__ == '__main__':
             for iter in range(0, input.iterations, cores):
             
@@ -170,7 +167,7 @@ def Do_MC(inputfile, ratedef_file, rate_dir, outputfile, cores):
                     
                     logger.info('Running iterations '+str(iter+1)+'-'+str(iter+cores)+' out of '+str(input.iterations)+'...')
             
-                    processes = [mp.Process(target=Parallel_Single_MC, args=(Energy[k], input.t_max, molecule, rates, queue, j_iter, outputfile)) for j_iter in range(iter, iter+cores)]
+                    processes = [mp.Process(target=Parallel_Single_MC, args=(Energy[k], input.t_max, molecule, input, queue, j_iter, outputfile)) for j_iter in range(iter, iter+cores)]
                     
                     for process in processes:
                         process.start()
@@ -181,7 +178,7 @@ def Do_MC(inputfile, ratedef_file, rate_dir, outputfile, cores):
                 else:
                     logger.info('Running iterations '+str(iter+1)+'-'+str(input.iterations)+' out of '+str(input.iterations)+'...')
             
-                    processes = [mp.Process(target=Parallel_Single_MC, args=(Energy[k], input.t_max, cp.deepcopy(molecule), rates, queue, j_iter, outputfile)) for j_iter in range(iter, input.iterations)]
+                    processes = [mp.Process(target=Parallel_Single_MC, args=(Energy[k], input.t_max, cp.deepcopy(molecule), input, queue, j_iter, outputfile)) for j_iter in range(iter, input.iterations)]
                     
                     for process in processes:
                         process.start()
@@ -191,7 +188,7 @@ def Do_MC(inputfile, ratedef_file, rate_dir, outputfile, cores):
                 
                 while True:    
                     diss_atom, diss_position, time, hops, D_hops, end_struct, HH_time, HD_time, DD_time, mc = queue.get()
-            
+
                     if diss_atom == None:
                         dissociation_atoms[Energy[k]]['None'] +=1
                     else:
@@ -209,30 +206,10 @@ def Do_MC(inputfile, ratedef_file, rate_dir, outputfile, cores):
                     if len(N_scramble_hops[Energy[k]]) == iter + cores or len(N_scramble_hops[Energy[k]]) == input.iterations:
                         break
                     
-            
-            
+    
+    
     if __name__ == '__main__':
         STD_Output(outputfile, dissociation_atoms, dissociation_positions, dissociation_times, N_scramble_hops, N_D_hops)
-    #output        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 # Usage:
 # python main.py [-o <output>] [-l <log>] <inputfile> <ratedef-file> <rate-directory> <#cores>
@@ -244,8 +221,6 @@ def Do_MC(inputfile, ratedef_file, rate_dir, outputfile, cores):
 
 inputerror = 'error.txt'
 
-
-
 try:
     opts, args = getopt.getopt(sys.argv[1:], 'o:l:')
 except getopt.GetoptError:
@@ -253,16 +228,14 @@ except getopt.GetoptError:
     error.write('Incorrect usage, please check documentation for correct usage.\n')
     sys.exit(2)
 
-if len(args) != 4:
+if len(args) != 2:
     error = open(inputerror, 'a')
-    error.write('Missing arguments, 4 needed.\n')
+    error.write('Missing arguments, 2 needed.\n')
     sys.exit(2)
 
 inputfile = args[0]
-ratedef_file = args[1]
-rate_dir = args[2]
 try:
-    cores = int(args[3])
+    cores = int(args[1])
 except ValueError as err:
     error.write('Number of cores to use must be an integer')
     error.write(err)
@@ -281,13 +254,11 @@ if opts:
         if o == '-l':
             logfile = f
 
-
-
 logging.basicConfig(filename=logfile,format='%(asctime)s %(levelname)s %(name)s %(message)s', datefmt='%d/%m/%Y %H:%M:%S', level=logging.INFO)
 
 logger = logging.getLogger(__name__)
 
-Do_MC(inputfile, ratedef_file, rate_dir, outputfile, cores)
+Do_MC(inputfile, outputfile, cores)
 
 logger.info('Simulation done.')
 
