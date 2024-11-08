@@ -9,7 +9,7 @@ module load Anaconda3/2022.05
 
 
 
-python src/main.py $1 $2 $3 36
+python src/main.py $1 36
 
 
 
