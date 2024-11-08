@@ -32,3 +32,9 @@ Options:
     -o  Output file [default rrkm.txt].
     -r  Reverse output file.
 ```
+
+Example:
+
+```bash
+rrkm.py -o /RRKM/Phenanthrene/C14H10-D9to10.txt /DFT/Phenanthrene/C14H10-D9.log /DFT/Phenanthrene/C14H10-TS-D9toD10.log /DFT/Phenanthrene/C14H10-D10.log
+```
