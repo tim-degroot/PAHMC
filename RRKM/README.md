@@ -1,6 +1,8 @@
 # RRKM
 
-The `rrkm.py` script used Rice-Ramsperger-Kassel-Marcus (RRKM) theory to evaluate the reaction rates for scrambling and dissociation rates of deuterium and hydrogen in Polycyclic Aromatic Hydrocarbons (PAHs) and to prepare input files for use with the accompanying PAHMC model for Monte Carlo simulations.
+The `rrkm.py` script uses the `densum` program included in the `MULTIWELL`[^1] suite to calculate reaction rates in accordance with Rice-Ramsperger-Kassel-Marcus (RRKM) Theory and prepare reaction rate input files for use with the PAHMC model for Monte Carlo simulations.
+
+[^1]: R. Barker, T. L. Nguyen, J. F. Stanton, C. Aieta, M. Ceotto, F. Gabas, T. J. D. Kumar, C. G. L. Li, L. L. Lohr, A. Maranzana, N. F. Ortiz, J. M. Preses, J. M. Simmie, J. A. Sonk, and P. J. Stimac; MultiWell-2023-2.1 Software Suite; J. R. Barker, University of Michigan, Ann Arbor, Michigan, USA, 2023; [MultiWell Site](https://multiwell.engin.umich.edu/).
 
 ## Installation
 
