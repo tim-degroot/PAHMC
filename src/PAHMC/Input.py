@@ -122,10 +122,10 @@ class Input_reader():
         self.init_links_numbers = tuple(self.mol_links_numbers)
                 
         # Read in the range of the simulation, and convert to float/integer
-        try:
-            self.energy_range = data.get('Energy range').split(',')
-        except AttributeError:
+        if isinstance(data.get('Energy range'), float):
             self.energy_range = data.get('Energy range')
+        else: 
+            self.energy_range = data.get('Energy range').split(',')
         if len(self.energy_range) == 1:
             try:
                 self.energy_range = [float(self.energy_range[0])]
