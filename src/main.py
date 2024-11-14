@@ -131,8 +131,8 @@ def Do_MC(inputfile, outputfile, cores):
     
     # Initialize some variables, arrays, and dictionaries
     
-    if len(input.energy_range) == 1:
-        Energy = input.energy_range
+    if isinstance(input.energy_range, float):
+        Energy = [input.energy_range]
     else:
         # Make a linear spaced array of energies in range specified (nsteps +1 because linspace includes the stop value specified.)
         Energy = np.linspace(input.range[0], input.range[1], num=input.range[2]+1)
