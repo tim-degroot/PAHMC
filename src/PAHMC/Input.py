@@ -156,7 +156,7 @@ class Input_reader():
             logger.error('Invalid maximum time given.')
             sys.exit(2)
         
-        self.handling = data.get('Errror handling').lstrip()
+        self.handling = data.get('Error handling').lstrip()
         if self.handling not in ('w','q'):
             logger.error('Invalid error handling mode given. Supported are: display warnings (w), display warnings and abort (q).')
             sys.exit(2)
