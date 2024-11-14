@@ -24,7 +24,7 @@ class Input_reader():
             logger.error('The provided input file \''+filename+'\'  was not found.')
             sys.exit(2)
 
-        with open('Anthracene9_36it_002s_test.yaml', 'r') as file:
+        with open(filename, 'r') as file:
             data = yaml.load(file, Loader=yaml.CLoader)
             
         self.mol_name = data.get('Name')
