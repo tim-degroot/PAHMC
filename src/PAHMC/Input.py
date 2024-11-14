@@ -126,22 +126,22 @@ class Input_reader():
             self.energy_range = data.get('Energy range')
         else: 
             self.energy_range = data.get('Energy range').split(',')
-        if len(self.energy_range) == 1:
-            try:
-                self.energy_range = [float(self.energy_range[0])]
-            except ValueError:
-                logger.error('The single energy should be a floating point value. ')
-                sys.exit(2)
-        elif len(self.energy_range) == 3:
-            try:
-                self.energy_range[0] = float(self.energy_range[0])
-                self.energy_range[1] = float(self.energy_range[1])
-                self.energy_range[2] = int(self.energy_range[2])
-            except ValueError:
-                logger.error('Cannot understand the simulation range given. ')
-                sys.exit(2)
-        else:
-            logger.error('Cannot understand the simulation range given, it should be either a single energy or an energy range (min, max, nsteps). ')
+            if len(self.energy_range) == 1:
+                try:
+                    self.energy_range = [float(self.energy_range[0])]
+                except ValueError:
+                    logger.error('The single energy should be a floating point value. ')
+                    sys.exit(2)
+            elif len(self.energy_range) == 3:
+                try:
+                    self.energy_range[0] = float(self.energy_range[0])
+                    self.energy_range[1] = float(self.energy_range[1])
+                    self.energy_range[2] = int(self.energy_range[2])
+                except ValueError:
+                    logger.error('Cannot understand the simulation range given. ')
+                    sys.exit(2)
+            else:
+                logger.error('Cannot understand the simulation range given, it should be either a single energy or an energy range (min, max, nsteps). ')
             
         # Read in the number of simulations for each energy
         try:
