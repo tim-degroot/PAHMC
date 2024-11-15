@@ -209,7 +209,7 @@ def Do_MC(inputfile, outputfile, cores):
                     else:
                         logger.info(f"diss_atom={diss_atom}, diss_position={diss_position}, value={value}, time={time}, hopes={hops}, D_hops={D_hops}")
                         dissociation_atoms[value][diss_atom] += 1
-                        dissociation_positions[value][diss_position] += 1
+                        dissociation_positions[value][diss_position] = dissociation_positions[value].get(diss_position, 0) + 1
                         dissociation_times[value].append(time)
                     N_scramble_hops[value].append(hops)
                     N_D_hops[value].append(D_hops)
