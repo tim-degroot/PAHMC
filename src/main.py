@@ -151,6 +151,7 @@ def Do_MC(inputfile, outputfile, cores):
     queue = mp.Queue()
 
     input = Input_reader(inputfile)
+    logger.info(f"Read data from: {inputfile}")
     warn_setting = input.handling
 
     molecule = Molecule(input)
