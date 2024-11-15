@@ -173,11 +173,12 @@ class Input_reader():
         rates = data.get('Rates')
 
         for ratelist, ratefile in rates.items():
-            for reac in ratelist.split(','):
-                self.reactionrates[reac] = ratefile
-        
-        for reac, ratefile in self.reactionrates.items():
             filepath = os.path.join(self.rate_dir, ratefile)
+
+            if not os.path.isfile(filepath):
+                logger.error('The provided rate file \''+filepath+'\'  was not found.')
+                sys.exit(2)
+
             rates = np.loadtxt(filepath,unpack=True,skiprows=2)
 
             with open(filepath) as f:
@@ -185,9 +186,11 @@ class Input_reader():
                 # Then select the value of Delta out of the rate file by regular expression
                 # (this regex finds all numbers in the first line, then saves only the last one)
                 delta = float(re.findall(r"[-+]?\d+[\.]?\d*[eE]?[-+]?\d*\b",firstline)[-1])
-        
+            
+            for reac in ratelist.split(','):
+                self.reactionrates[reac] = rates
                 self.dE[reac] = delta
-        
+                
             N_rates = len(self.reactionrates.keys())
         
             logger.info(str(N_rates)+' rate files sucessfully read.')

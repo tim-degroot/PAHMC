@@ -135,7 +135,7 @@ def Do_MC(inputfile, outputfile, cores):
         Energy = [input.energy_range]
     else:
         # Make a linear spaced array of energies in range specified (nsteps +1 because linspace includes the stop value specified.)
-        Energy = np.linspace(input.range[0], input.range[1], num=input.range[2]+1)
+        Energy = np.linspace(input.energy_range[0], input.energy_range[1], num=input.energy_range[2]+1)
     
     dissociation_atoms = {}
     dissociation_times = {}
@@ -144,20 +144,16 @@ def Do_MC(inputfile, outputfile, cores):
     N_D_hops = {}    
             
     # Run multiple MC events
-    for k in range(len(Energy)):
-
-        dissociation_atoms[Energy[k]] = {'H': 0, 'D': 0, 'None': 0}
-        N_scramble_hops[Energy[k]] = []
-        N_D_hops[Energy[k]] = []
-        dissociation_times[Energy[k]] = []
-        dissociation_positions[Energy[k]] = {}
+    for value in Energy:
+        dissociation_atoms[value] = {'H': 0, 'D': 0, 'None': 0}
+        N_scramble_hops[value] = []
+        N_D_hops[value] = []
+        dissociation_times[value] = []
+        dissociation_positions[value] = {}
     
         # Initialize the dissociation positions dictionary to zero
         for i in range(len(molecule.edge_numbers)):
-            for e_num in molecule.edge_numbers[i]:
-                dissociation_positions[Energy[k]][e_num] = 0
-            for l_num in molecule.link_numbers[i]:
-                dissociation_positions[Energy[k]][l_num] = 0
+            dissociation_positions[value][i] = 0
 
         
         if __name__ == '__main__':
@@ -167,7 +163,7 @@ def Do_MC(inputfile, outputfile, cores):
                     
                     logger.info('Running iterations '+str(iter+1)+'-'+str(iter+cores)+' out of '+str(input.iterations)+'...')
             
-                    processes = [mp.Process(target=Parallel_Single_MC, args=(Energy[k], input.t_max, molecule, input, queue, j_iter, outputfile)) for j_iter in range(iter, iter+cores)]
+                    processes = [mp.Process(target=Parallel_Single_MC, args=(value, input.t_max, molecule, input, queue, j_iter, outputfile)) for j_iter in range(iter, iter+cores)]
                     
                     for process in processes:
                         process.start()
@@ -178,7 +174,7 @@ def Do_MC(inputfile, outputfile, cores):
                 else:
                     logger.info('Running iterations '+str(iter+1)+'-'+str(input.iterations)+' out of '+str(input.iterations)+'...')
             
-                    processes = [mp.Process(target=Parallel_Single_MC, args=(Energy[k], input.t_max, cp.deepcopy(molecule), input, queue, j_iter, outputfile)) for j_iter in range(iter, input.iterations)]
+                    processes = [mp.Process(target=Parallel_Single_MC, args=(value, input.t_max, cp.deepcopy(molecule), input, queue, j_iter, outputfile)) for j_iter in range(iter, input.iterations)]
                     
                     for process in processes:
                         process.start()
@@ -190,20 +186,20 @@ def Do_MC(inputfile, outputfile, cores):
                     diss_atom, diss_position, time, hops, D_hops, end_struct, HH_time, HD_time, DD_time, mc = queue.get()
 
                     if diss_atom == None:
-                        dissociation_atoms[Energy[k]]['None'] +=1
+                        dissociation_atoms[value]['None'] +=1
                     else:
-                        dissociation_atoms[Energy[k]][diss_atom] += 1
-                        dissociation_positions[Energy[k]][diss_position] += 1
-                        dissociation_times[Energy[k]].append(time)
-                    N_scramble_hops[Energy[k]].append(hops)
-                    N_D_hops[Energy[k]].append(D_hops)
+                        dissociation_atoms[value][diss_atom] += 1
+                        dissociation_positions[value][diss_position] += 1
+                        dissociation_times[value].append(time)
+                    N_scramble_hops[value].append(hops)
+                    N_D_hops[value].append(D_hops)
                     
-                    Data_Output(outputfile, Energy[k], diss_atom, diss_position, time, hops, D_hops, HH_time, HD_time, DD_time, mc) # Writes data to a data log file
+                    Data_Output(outputfile, value, diss_atom, diss_position, time, hops, D_hops, HH_time, HD_time, DD_time, mc) # Writes data to a data log file
                     
                     if diss_atom != None:
-                        End_Structures_Output(outputfile, Energy[k], end_struct,mc) # Writes the dissociated end structures to an output file 
+                        End_Structures_Output(outputfile, value, end_struct,mc) # Writes the dissociated end structures to an output file 
 
-                    if len(N_scramble_hops[Energy[k]]) == iter + cores or len(N_scramble_hops[Energy[k]]) == input.iterations:
+                    if len(N_scramble_hops[value]) == iter + cores or len(N_scramble_hops[value]) == input.iterations:
                         break
                     
     
