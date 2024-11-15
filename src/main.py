@@ -207,6 +207,7 @@ def Do_MC(inputfile, outputfile, cores):
                     if diss_atom == None:
                         dissociation_atoms[value]["None"] += 1
                     else:
+                        logger.info(f"diss_atom={diss_atom}, diss_position={diss_position}, value={value}, time={time}, hopes={hops}, D_hops={D_hops}")
                         dissociation_atoms[value][diss_atom] += 1
                         dissociation_positions[value][diss_position] += 1
                         dissociation_times[value].append(time)
