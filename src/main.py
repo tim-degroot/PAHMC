@@ -26,7 +26,7 @@ from PAHMC.Output import End_Structures_Output
 def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename):
     """Run a single MC"""
 
-    print("MC " + str(j_iter) + " starting", flush=True)
+    print(f"MC {j_iter} starting", flush=True)
 
     # Make a list of all reaction keys that have rates specified
     specified_rates = list(rates.reactionrates.keys())
@@ -73,10 +73,6 @@ def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename)
             elif molecule.edges[m][n] == "DD":
                 molecule.DD_time += dt
 
-        #        print(reactionkey)
-        #        if total_hops%1000 == 0:
-        #            print(time)
-
         # Carry out the reaction
         if "to" in reactionkey:
             # First some bookkeeping (saving the position of the aliphatic site and such)
@@ -100,16 +96,15 @@ def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename)
 
             # Do the dissociation
             React.Do_dissociation(diss_atom, molecule)
-            # print(total_hops, diss_atom, diss_position)
             break
 
         # Keep track of how many 'hops' are done by the aliphatic site
         total_hops += 1
 
         if total_hops % 500000 == 0:
-            print("MC " + str(j_iter) + " hops: " + str(total_hops), flush=True)
+            print(f"MC {str(j_iter)} hops: {str(total_hops)}", flush=True)
 
-    print("MC " + str(j_iter) + " ending", flush=True)
+    print(f"MC {j_iter} ending", flush=True)
     queue.put(
         [
             diss_atom,
