@@ -253,8 +253,8 @@ if __name__ == "__main__":
         prog="PAHMC",
         description="Process input file and rate definition file."
     )
-    parser.add_argument("inputfile", type=str, help="Input file")
-    parser.add_argument("cores", type=int, help="Number of cores to use")
+    parser.add_argument("inputfile", type=str, help="Input YAML file")
+    parser.add_argument("cores", type=int, help="Number of parallel processes to run")
     parser.add_argument("-o", "--output", type=str, help="Output file", default=None)
     parser.add_argument("-l", "--log", type=str, help="Log file", default=None)
 
