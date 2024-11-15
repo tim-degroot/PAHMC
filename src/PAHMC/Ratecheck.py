@@ -82,12 +82,8 @@ def Check_available_rates(rates, molecule, warn_setting):
         if key not in rates.reactionrates.keys():
             if warn_setting in ("w", "W"):
                 logger.warning(
-                    "No rates found for "
-                    + key
-                    + ", continuing without rates for "
-                    + key
-                    + "."
+                    f"No rates found for {key}, continuing without rates for {key}."
                 )
             elif warn_setting in ("q", "Q"):
-                logger.error("No rates found for " + key + ", stopping run now.")
+                logger.error(f"No rates found for {key}, stopping run now.")
                 sys.exit(2)

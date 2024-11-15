@@ -20,8 +20,6 @@ from PAHMC.Output import Data_Output
 from PAHMC.Output import Structure_Output
 from PAHMC.Output import End_Structures_Output
 
-# logger = logging.getLogger(__name__)
-
 
 def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename):
     """Run a single MC"""
@@ -167,13 +165,7 @@ def Do_MC(inputfile, outputfile, cores):
                 if iter + cores < input.iterations:
 
                     logger.info(
-                        "Running iterations "
-                        + str(iter + 1)
-                        + "-"
-                        + str(iter + cores)
-                        + " out of "
-                        + str(input.iterations)
-                        + "..."
+                        f"Running iterations {iter + 1}-{iter + cores} out of {input.iterations}..."
                     )
 
                     processes = [
@@ -200,13 +192,7 @@ def Do_MC(inputfile, outputfile, cores):
 
                 else:
                     logger.info(
-                        "Running iterations "
-                        + str(iter + 1)
-                        + "-"
-                        + str(input.iterations)
-                        + " out of "
-                        + str(input.iterations)
-                        + "..."
+                        f"Running iterations {iter + 1}-{input.iterations} out of {input.iterations}..."
                     )
 
                     processes = [

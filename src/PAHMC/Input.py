@@ -174,9 +174,7 @@ class Input_reader:
         self.dE = {}
 
         if not os.path.isdir(self.rate_dir):
-            logger.error(
-                "The provided rates directory '" + self.rate_dir + "'  was not found."
-            )
+            logger.error(f"The provided rates directory '{self.rate_dir}' was not found.")
             sys.exit(2)
 
         rates = data.get("Rates")
@@ -185,9 +183,7 @@ class Input_reader:
             filepath = os.path.join(self.rate_dir, ratefile)
 
             if not os.path.isfile(filepath):
-                logger.error(
-                    "The provided rate file '" + filepath + "'  was not found."
-                )
+                logger.error(f"The provided rate file '{filepath}' was not found.")
                 sys.exit(2)
 
             rates = np.loadtxt(filepath, unpack=True, skiprows=2)
@@ -205,5 +201,4 @@ class Input_reader:
                 self.dE[reac] = delta
 
             N_rates = len(self.reactionrates.keys())
-
-            logger.info(str(N_rates) + " rate files sucessfully read.")
+            logger.info(f"{N_rates} rate files successfully read.")

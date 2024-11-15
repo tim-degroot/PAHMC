@@ -22,7 +22,7 @@ def Data_Output(
 
     fname = outfilename.split(".")[0]
 
-    data_file = open(fname + "_" + str(E) + "_data.log", "a")
+    data_file = open(f"{fname}_{E}_data.log", "a")
 
     data_file.write(
         "MC{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
@@ -46,10 +46,7 @@ def Structure_Output(outfilename, E, iteration, molecule):
 
     fname = outfilename.split(".")[0]
 
-    struct_file = open(
-        fname + "_" + str(E) + "_iteration_" + str(iteration) + "_mol_structures.log",
-        "a",
-    )
+    struct_file = open(f"{fname}_{E}_iteration_{iteration}_mol_structures.log", "a")
 
     struct_file.write(str(molecule.edges))
     struct_file.write("\n")
@@ -65,9 +62,9 @@ def End_Structures_Output(outfilename, E, edge, mc):
 
     fname = outfilename.split(".")[0]
 
-    endstruct_file = open(fname + "_" + str(E) + "_end_structures.out", "a")
+    endstruct_file = open(f"{fname}_{E}_end_structures.out", "a")
 
-    endstruct_file.write("MC" + str(mc) + "\t" + str(edge))
+    endstruct_file.write(f"MC{mc}\t{edge}")
     endstruct_file.write("\n")
 
     endstruct_file.close()
@@ -97,19 +94,14 @@ def STD_Output(
 
     for E in energies:
 
-        outfile.write("Dissociations for Energy " + str(E) + ":\n")
+        outfile.write(f"Dissociations for Energy {E}:\n")
         outfile.write(
-            "H: %d, D: %d, None: %d\n"
-            % (
-                dissociation_atoms[E]["H"],
-                dissociation_atoms[E]["D"],
-                dissociation_atoms[E]["None"],
-            )
+            f"H: {dissociation_atoms[E]['H']}, D: {dissociation_atoms[E]['D']}, None: {dissociation_atoms[E]['None']}\n"
         )
 
-        outfile.write("Dissociation positions for Energy " + str(E) + ":\n")
+        outfile.write(f"Dissociation positions for Energy {E}:\n")
         for key in list(dissociation_positions[E].keys()):
-            outfile.write(key + ": " + str(dissociation_positions[E][key]) + "\n")
+            outfile.write(f"{key}: {dissociation_positions[E][key]}\n")
 
         # make bins for histogram
         time_bins = np.arange(0, max_time, time_bin_size)

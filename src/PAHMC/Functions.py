@@ -105,44 +105,44 @@ def Possible_reactions(molecule, specified_rates):
 
     if deut == 0:
         # Scrambling
-        reactions.append("H" + current + "to" + prev)
-        reactions.append("H" + current + "to" + next)
+        reactions.append(f"H{current}to{prev}")
+        reactions.append(f"H{current}to{next}")
         # Dissociation
-        reactions.append("H" + current + "diss")
+        reactions.append(f"H{current}diss")
         # if on edge two hydrogens that can move, so append again
         if molecule.al_place == "e":
             # Scrambling
-            reactions.append("H" + current + "to" + prev)
-            reactions.append("H" + current + "to" + next)
+            reactions.append(f"H{current}to{prev}")
+            reactions.append(f"H{current}to{next}")
             # Dissociation
-            reactions.append("H" + current + "diss")
+            reactions.append(f"H{current}diss")
 
     elif deut == 1:
         # Scrambling
-        reactions.append("D" + current + "to" + prev)
-        reactions.append("D" + current + "to" + next)
+        reactions.append(f"D{current}to{prev}")
+        reactions.append(f"D{current}to{next}")
         # Dissociation
-        reactions.append("D" + current + "diss")
+        reactions.append(f"D{current}diss")
         if molecule.al_place == "e":
             # Scrambling
-            reactions.append("H" + current + "to" + prev)
-            reactions.append("H" + current + "to" + next)
+            reactions.append(f"H{current}to{prev}")
+            reactions.append(f"H{current}to{next}")
             # Dissociation
-            reactions.append("H" + current + "diss")
+            reactions.append(f"H{current}diss")
 
     elif deut == 2:
         # Scrambling
-        reactions.append("D" + current + "to" + prev)
-        reactions.append("D" + current + "to" + next)
+        reactions.append(f"D{current}to{prev}")
+        reactions.append(f"D{current}to{next}")
         # Dissociation
-        reactions.append("D" + current + "diss")
+        reactions.append(f"D{current}diss")
         # if on edge two hydrogens that can move, so append again
         if molecule.al_place == "e":
             # Scrambling
-            reactions.append("D" + current + "to" + prev)
-            reactions.append("D" + current + "to" + next)
+            reactions.append(f"D{current}to{prev}")
+            reactions.append(f"D{current}to{next}")
             # Dissociation
-            reactions.append("D" + current + "diss")
+            reactions.append(f"D{current}diss")
 
     reactions = Remove_missing_rate(reactions, specified_rates)
 
