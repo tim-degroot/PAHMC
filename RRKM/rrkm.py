@@ -27,6 +27,7 @@ R = 8.3144598
 
 parser = argparse.ArgumentParser(
     prog="RRKM",
+    usage="RRKM [options] reactant TS product",
     description="Calculate RRKM rate based on Gaussian16 frequency calculations using densum",
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
 )

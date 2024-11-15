@@ -22,27 +22,26 @@ export PATH="/path/to/PAHMC/RRKM:$PATH"
 ## Usage
 
 ```docs
-usage: RRKM [-h] [-q] [-p] [-l] [-f SCALING] [-t TEMP] [-g GRAIN] [-m MAX_INT] [-o OUTPUT] [-r REVERSE] reactant TS product
+usage: RRKM [options] reactant TS product
+
+Calculate RRKM rate based on Gaussian16 frequency calculations using densum
 
 positional arguments:
-  reactant              Reactant .log file
-  TS                    Transition State .log file
-  product               Product .log file
+  reactant    Reactant .log file
+  TS          Transition State .log file
+  product     Product .log file
 
 options:
-  -h, --help            show this help message and exit
-  -q                    Quiet output (default: False)
-  -p                    Plot rate (default: False)
-  -l                    Loose transition state (default: False)
-  -f, --scaling SCALING
-                        Scaling factor (default: 0.97)
-  -t, --temp TEMP       Temperature (default: 1000)
-  -g, --grain GRAIN     Energy grain in cm-1 (default: 100)
-  -m, --max_int MAX_INT
-                        Maximum internal energy to evaluate (in cm-1) (default: 242000)
-  -o, --output OUTPUT   Output file.txt (default: rrkm.txt)
-  -r, --reverse REVERSE
-                        Reverse output file (default: None)
+  -h, --help  show this help message and exit
+  -q          Quiet mode (default: False)
+  -p          Plot mode (default: False)
+  -l          Loose transition state, i.e. dissociation (default: False)
+  -f F        Scaling factor (default: 0.97)
+  -t T        Temperature (default: 1000)
+  -g G        Energy grain in cm-1 (default: 100)
+  -m M        Maximum internal energy to evaluate (default: 242000)
+  -o O        Output file (default: rrkm.txt)
+  -r R        Reverse output file (default: None)
 ```
 
 Example:
