@@ -174,7 +174,9 @@ class Input_reader:
         self.dE = {}
 
         if not os.path.isdir(self.rate_dir):
-            logger.error(f"The provided rates directory '{self.rate_dir}' was not found.")
+            logger.error(
+                f"The provided rates directory '{self.rate_dir}' was not found."
+            )
             sys.exit(2)
 
         rates = data.get("Rates")
