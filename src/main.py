@@ -250,6 +250,7 @@ def Do_MC(inputfile, outputfile, cores):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
+        prog="PAHMC",
         description="Process input file and rate definition file."
     )
     parser.add_argument("inputfile", type=str, help="Input file")
