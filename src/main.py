@@ -50,7 +50,7 @@ def run_iterations(start, end, input, value, molecule, queue, outputfile):
 def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename):
     """Run a single MC"""
 
-    print(f"MC {j_iter + 1} starting", flush=True)
+    print(f"MC {j_iter} starting", flush=True)
 
     # Make a list of all reaction keys that have rates specified
     specified_rates = list(rates.reactionrates.keys())
