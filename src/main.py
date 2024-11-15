@@ -208,9 +208,13 @@ def Do_MC(inputfile, outputfile, cores):
                     if diss_atom == None:
                         dissociation_atoms[value]["None"] += 1
                     else:
-                        logger.info(f"diss_atom={diss_atom}, diss_position={diss_position}, value={value}, time={time}, hopes={hops}, D_hops={D_hops}")
+                        logger.info(
+                            f"diss_atom={diss_atom}, diss_position={diss_position}, value={value}, time={time}, hopes={hops}, D_hops={D_hops}"
+                        )
                         dissociation_atoms[value][diss_atom] += 1
-                        dissociation_positions[value][diss_position] = dissociation_positions[value].get(diss_position, 0) + 1
+                        dissociation_positions[value][diss_position] = (
+                            dissociation_positions[value].get(diss_position, 0) + 1
+                        )
                         dissociation_times[value].append(time)
                     N_scramble_hops[value].append(hops)
                     N_D_hops[value].append(D_hops)
@@ -251,8 +255,7 @@ def Do_MC(inputfile, outputfile, cores):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        prog="PAHMC",
-        description="Process input file and rate definition file."
+        prog="PAHMC", description="Process input file and rate definition file."
     )
     parser.add_argument("inputfile", type=str, help="Input YAML file")
     parser.add_argument("cores", type=int, help="Number of parallel processes to run")
