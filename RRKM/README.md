@@ -22,19 +22,27 @@ export PATH="/path/to/PAHMC/RRKM:$PATH"
 ## Usage
 
 ```docs
-Usage:
-    rrkm.py [options] <reactant> <TS> <product>
-    rrkm -h | --help
-Options:
-    -q  Quiet output.
-    -p  Plot rate.
-    -l  Loose transition state -> needed for diss of H/D (not an actual TS but gradual thing).
-    -f  Scaling factor [default: 0.97].
-    -t  Temperature [default: 1000].
-    -g  Energy grain in cm-1 -> 100=0.012eV (CORO); 400=0.048eV (OVA) [default: 100].
-    -m  Maximum internal energy to evaluate (in cm-1) [default: 242000].
-    -o  Output file [default rrkm.txt].
-    -r  Reverse output file.
+usage: RRKM [-h] [-q] [-p] [-l] [-f SCALING] [-t TEMP] [-g GRAIN] [-m MAX_INT] [-o OUTPUT] [-r REVERSE] reactant TS product
+
+positional arguments:
+  reactant              Reactant .log file
+  TS                    Transition State .log file
+  product               Product .log file
+
+options:
+  -h, --help            show this help message and exit
+  -q                    Quiet output (default: False)
+  -p                    Plot rate (default: False)
+  -l                    Loose transition state (default: False)
+  -f, --scaling SCALING
+                        Scaling factor (default: 0.97)
+  -t, --temp TEMP       Temperature (default: 1000)
+  -g, --grain GRAIN     Energy grain in cm-1 (default: 100)
+  -m, --max_int MAX_INT
+                        Maximum internal energy to evaluate (in cm-1) (default: 242000)
+  -o, --output OUTPUT   Output file.txt (default: rrkm.txt)
+  -r, --reverse REVERSE
+                        Reverse output file (default: None)
 ```
 
 Example:

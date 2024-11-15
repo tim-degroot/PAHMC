@@ -4,6 +4,7 @@ import os, sys, tempfile, re, getopt
 import numpy as np
 import subprocess
 import matplotlib.pyplot as plt
+import argparse
 
 cwd = os.getcwd()
 
@@ -23,88 +24,40 @@ kb = 1.38064852e-23
 ### Gas constant (cal/K/mol)
 R = 8.3144598
 
-outfile = "rrkm.txt"
 
-docs = """Usage:
-    rrkm.py [options] <reactant> <TS> <product>
-    rrkm -h | --help
-Options:
-    -q  Quiet output.
-    -p  Plot rate.
-    -l  Loose transition state -> needed for diss of H/D (not an actual TS but gradual thing).
-    -f  Scaling factor [default: 0.97].
-    -t  Temperature [default: 1000].
-    -g  Energy grain in cm-1 -> 100=0.012eV (CORO); 400=0.048eV (OVA) [default: 100].
-    -m  Maximum internal energy to evaluate (in cm-1) [default: 242000].
-    -o  Output file [default rrkm.txt].
-    -r  Reverse output file."""
+parser = argparse.ArgumentParser(
+    prog="RRKM",
+    description="Calculate RRKM rate based on Gaussian16 frequency calculations using densum",
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+)
+parser.add_argument("reactant", type=str, help="Reactant .log file")
+parser.add_argument("TS", type=str, help="Transition State .log file")
+parser.add_argument("product", type=str, help="Product .log file")
+parser.add_argument("-q", action="store_true", help="Quiet mode")
+parser.add_argument("-p", action="store_true", help="Plot mode")
+parser.add_argument(
+    "-l", action="store_true", help="Loose transition state, i.e. dissociation"
+)
+parser.add_argument("-f", type=float, default=0.97, help="Scaling factor")
+parser.add_argument("-t", type=int, default=1000, help="Temperature")
+parser.add_argument("-g", type=int, default=100, help="Energy grain in cm-1")
+parser.add_argument(
+    "-m", type=int, default=242000, help="Maximum internal energy to evaluate"
+)
+parser.add_argument("-o", type=str, default="rrkm.txt", help="Output file")
+parser.add_argument("-r", type=str, help="Reverse output file")
+args = parser.parse_args()
 
-flq = False
-flp = False
-outfile_rev = ""
-flloose = False
-Egrain = 100  # Energy grain in cm-1 -> 100=0.012eV (CORO); 400=0.048eV (OVA)
-Emax2 = 242000  # max energy in cm-1 -> 242000 ~ 30eV
+flq = args.q
+flp = args.p
+flloose = args.l
+sf = args.f
+temp = args.t
+Egrain = args.g
+Emax2 = args.m
+outfile = args.o
+outfile_rev = args.r if args.r else ""
 
-try:
-    opts, args = getopt.getopt(sys.argv[1:], "qplf:t:g:m:o:r:h", ["help"])
-except getopt.GetoptError:
-    print(docs)
-    sys.exit(2)
-for o, a in opts:
-    if o in ("-h", "--help"):
-        print(docs)
-        sys.exit(0)
-    elif o == "-q":
-        flq = True
-    elif o == "-p":
-        flp = True
-    elif o == "-l":
-        flloose = True
-    elif o == "-f":
-        try:
-            sf = float(a)
-        except Exception as exc:
-            print("Scaling factor must be float: " + exc)
-            sys.exit(2)
-    elif o == "-t":
-        try:
-            T = float(a)
-        except Exception as exc:
-            print("Ensemble temperature must be float: " + exc)
-            sys.exit(2)
-    elif o == "-g":
-        try:
-            Egrain = int(a)
-        except Exception as exc:
-            print("Grain must be an integer: " + exc)
-            sys.exit(2)
-    elif o == "-m":
-        try:
-            Emax2 = int(float(a) * conv / 1000 + 0.5) * 1000
-        except Exception as exc:
-            print("Max. energy must be float: " + exc)
-            sys.exit(2)
-    elif o == "-o":
-        try:
-            subprocess.run(["touch", a])
-            outfile = a
-        except Exception as exc:
-            print("Cannot create output file: " + exc)
-            sys.exit(2)
-    elif o == "-r":
-        try:
-            subprocess.run(["touch", a])
-            outfile_rev = a
-        except Exception as exc:
-            print("Cannot create output file (rev. react.): " + exc)
-            sys.exit(2)
-
-### Check number of arguments
-if len(args) != 3:
-    print("Missing arguments (3 needed)!")
-    print(docs)
-    sys.exit(2)
 
 E0 = []
 energ = []
@@ -115,10 +68,11 @@ Stemp = []
 functionals = []
 
 tmpdir = tempfile.TemporaryDirectory()
+structures = [args.reactant, args.TS, args.product]
 
-for struct in args:
+for struct in structures:
     if struct[-4:] != ".log" or not os.path.isfile(struct):
-        print("File" + struct + " is not valid!")
+        print(f"File {struct} is not valid!")
         sys.exit(2)
 
     fh_freqfile = tempfile.NamedTemporaryFile(mode="w+", dir=tmpdir.name)
@@ -128,7 +82,7 @@ for struct in args:
 
     ### Read frequencies from Gaussian file
     if not flq:
-        print("Getting frequencies from " + struct + "...")
+        print(f"Getting frequencies from {struct}...")
     subprocess.call(["grep", "Frequencies", struct], stdout=fh_freqfile)
 
     ### Get ground state energies
@@ -161,8 +115,8 @@ for struct in args:
     freqs = freqs[freqs > 0]
     af = freqs.size
     if not flq:
-        print(" Freqs. read: ", ai)
-        print(" Imaginary freqs.: ", ai - af)
+        print(f"Freqs. read: {ai}")
+        print(f"Imaginary freqs.: {ai - af}")
 
     theta = h_ent * freqs / kb
 
@@ -175,7 +129,7 @@ for struct in args:
     ### Title for densum file
     title = "dummy"
     ### SET line1 for densum input file: TITLE
-    line1 = title + " sf={:.2f} ".format(sf) + funbset
+    line1 = f"{title} sf={sf:.2f} {funbset}"
     ### SET line2 for densum input file: filename for multiwell
     line2 = title
     ### SET line3 for densum input file
@@ -224,7 +178,8 @@ for struct in args:
     for i, line in enumerate(fh):
         if i >= start_line - 1:
             data = line.split()
-            print(data)
+            if not flq:
+                print(data)
             en.append(float(data[1]))
 
             check = re.compile(r"E\+")
