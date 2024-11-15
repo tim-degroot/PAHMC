@@ -2,7 +2,7 @@
 
 import sys, getopt
 import logging
-
+import argparse
 
 import numpy as np
 import multiprocessing as mp
@@ -21,10 +21,36 @@ from PAHMC.Output import Structure_Output
 from PAHMC.Output import End_Structures_Output
 
 
+def run_iterations(start, end, input, value, molecule, queue, outputfile):
+    logger.info(f"Running iterations {start + 1}-{end} out of {input.iterations}...")
+
+    processes = [
+        mp.Process(
+            target=Parallel_Single_MC,
+            args=(
+                value,
+                input.t_max,
+                cp.deepcopy(molecule) if end == input.iterations else molecule,
+                input,
+                queue,
+                j_iter,
+                outputfile,
+            ),
+        )
+        for j_iter in range(start, end)
+    ]
+
+    for process in processes:
+        process.start()
+
+    for process in processes:
+        process.join()
+
+
 def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename):
     """Run a single MC"""
 
-    print(f"MC {j_iter} starting", flush=True)
+    print(f"MC {j_iter + 1} starting", flush=True)
 
     # Make a list of all reaction keys that have rates specified
     specified_rates = list(rates.reactionrates.keys())
@@ -131,12 +157,9 @@ def Do_MC(inputfile, outputfile, cores):
 
     Check_available_rates(input, molecule, warn_setting)
 
-    # Initialize some variables, arrays, and dictionaries
-
     if isinstance(input.energy_range, float):
         Energy = [input.energy_range]
     else:
-        # Make a linear spaced array of energies in range specified (nsteps +1 because linspace includes the stop value specified.)
         Energy = np.linspace(
             input.energy_range[0], input.energy_range[1], num=input.energy_range[2] + 1
         )
@@ -155,67 +178,17 @@ def Do_MC(inputfile, outputfile, cores):
         dissociation_times[value] = []
         dissociation_positions[value] = {}
 
-        # Initialize the dissociation positions dictionary to zero
         for i in range(len(molecule.edge_numbers)):
             dissociation_positions[value][i] = 0
 
         if __name__ == "__main__":
             for iter in range(0, input.iterations, cores):
-
-                if iter + cores < input.iterations:
-
-                    logger.info(
-                        f"Running iterations {iter + 1}-{iter + cores} out of {input.iterations}..."
-                    )
-
-                    processes = [
-                        mp.Process(
-                            target=Parallel_Single_MC,
-                            args=(
-                                value,
-                                input.t_max,
-                                molecule,
-                                input,
-                                queue,
-                                j_iter,
-                                outputfile,
-                            ),
-                        )
-                        for j_iter in range(iter, iter + cores)
-                    ]
-
-                    for process in processes:
-                        process.start()
-
-                    for process in processes:
-                        process.join()
-
-                else:
-                    logger.info(
-                        f"Running iterations {iter + 1}-{input.iterations} out of {input.iterations}..."
-                    )
-
-                    processes = [
-                        mp.Process(
-                            target=Parallel_Single_MC,
-                            args=(
-                                value,
-                                input.t_max,
-                                cp.deepcopy(molecule),
-                                input,
-                                queue,
-                                j_iter,
-                                outputfile,
-                            ),
-                        )
-                        for j_iter in range(iter, input.iterations)
-                    ]
-
-                    for process in processes:
-                        process.start()
-
-                    for process in processes:
-                        process.join()
+                end = (
+                    iter + cores
+                    if iter + cores < input.iterations
+                    else input.iterations
+                )
+                run_iterations(iter, end, input, value, molecule, queue, outputfile)
 
                 while True:
                     (
@@ -252,12 +225,10 @@ def Do_MC(inputfile, outputfile, cores):
                         HD_time,
                         DD_time,
                         mc,
-                    )  # Writes data to a data log file
+                    )
 
                     if diss_atom != None:
-                        End_Structures_Output(
-                            outputfile, value, end_struct, mc
-                        )  # Writes the dissociated end structures to an output file
+                        End_Structures_Output(outputfile, value, end_struct, mc)
 
                     if (
                         len(N_scramble_hops[value]) == iter + cores
@@ -276,47 +247,21 @@ def Do_MC(inputfile, outputfile, cores):
         )
 
 
-# Usage:
-# python main.py [-o <output>] [-l <log>] <inputfile> <ratedef-file> <rate-directory> <#cores>
-
-# -o & -l options: specify output and log filenames
-
-# -> make name output and logfile optional
-
 if __name__ == "__main__":
-    inputerror = "error.txt"
+    parser = argparse.ArgumentParser(
+        description="Process input file and rate definition file."
+    )
+    parser.add_argument("inputfile", type=str, help="Input file")
+    parser.add_argument("cores", type=int, help="Number of cores to use")
+    parser.add_argument("-o", "--output", type=str, help="Output file", default=None)
+    parser.add_argument("-l", "--log", type=str, help="Log file", default=None)
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "o:l:")
-    except getopt.GetoptError:
-        error = open(inputerror, "a")
-        error.write("Incorrect usage, please check documentation for correct usage.\n")
-        sys.exit(2)
+    args = parser.parse_args()
 
-    if len(args) != 2:
-        error = open(inputerror, "a")
-        error.write("Missing arguments, 2 needed.\n")
-        sys.exit(2)
+    sim_name = args.inputfile.split(".")[0]
 
-    inputfile = args[0]
-    try:
-        cores = int(args[1])
-    except ValueError as err:
-        error.write("Number of cores to use must be an integer")
-        error.write(err)
-        sys.exit(2)
-
-    sim_name = inputfile.split(".")[0]
-
-    outputfile = sim_name + ".out"
-    logfile = sim_name + ".log"
-
-    if opts:
-        for o, f in opts:
-            if o == "-o":
-                outputfile = f
-            if o == "-l":
-                logfile = f
+    outputfile = sim_name + ".out" if args.output is None else args.output
+    logfile = sim_name + ".log" if args.log is None else args.log
 
     logging.basicConfig(
         filename=logfile,
@@ -327,6 +272,6 @@ if __name__ == "__main__":
 
     logger = logging.getLogger(__name__)
 
-    Do_MC(inputfile, outputfile, cores)
+    Do_MC(args.inputfile, outputfile, args.cores)
 
     logger.info("Simulation done.")
