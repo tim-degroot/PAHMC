@@ -64,23 +64,19 @@ def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename)
 
     while time < max_time:
 
-        if j_iter == 1:
+        if j_iter == 1:  # TODO: Discuss whether to depreceate with Alessandra
             Structure_Output(outfilename, E, j_iter, molecule)
-        # Determine the possible reactions (and aliphatic site surroundings)
+
         molecule.possible_reactions = Possible_reactions(molecule, specified_rates)
 
-        # Choose reaction from the possibilities
         reactionkey, dt = Choose_reaction(energy, molecule.possible_reactions, rates)
 
-        # Error if there's no dissociation before the rates go to 0
         if reactionkey == None:
             logger.error("Ran out of reaction rates before dissociation.")
             break
 
-        # Update time
         time += dt
 
-        # Update energy
         energy -= rates.dE[reactionkey]
 
         if molecule.al_place == "e":
@@ -109,20 +105,15 @@ def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename)
             if reactionkey[0] == "D":
                 D_hops += 1
 
-            # Do the scrambling
             React.Do_scramble(reactionkey, molecule)
         elif "diss" in reactionkey:
-            # Save the atom that dissociates
             diss_atom = reactionkey[0]
-            # Save the site the dissociation happened
             diss_position = reactionkey.replace(reactionkey[0], "")
             diss_position = diss_position.replace("diss", "")
 
-            # Do the dissociation
             React.Do_dissociation(diss_atom, molecule)
             break
 
-        # Keep track of how many 'hops' are done by the aliphatic site
         total_hops += 1
 
         if total_hops % 500000 == 0:
@@ -171,7 +162,6 @@ def Do_MC(inputfile, outputfile, cores):
     N_scramble_hops = {}
     N_D_hops = {}
 
-    # Run multiple MC events
     for value in Energy:
         dissociation_atoms[value] = {"H": 0, "D": 0, "None": 0}
         N_scramble_hops[value] = []
@@ -209,7 +199,7 @@ def Do_MC(inputfile, outputfile, cores):
                         dissociation_atoms[value]["None"] += 1
                     else:
                         logger.info(
-                            f"diss_atom={diss_atom}, diss_position={diss_position}, value={value}, time={time}, hopes={hops}, D_hops={D_hops}"
+                            f"diss_atom={diss_atom}, diss_position={diss_position}, value={value}, time={time}, hops={hops}, D_hops={D_hops}"
                         )
                         dissociation_atoms[value][diss_atom] += 1
                         dissociation_positions[value][diss_position] = (
