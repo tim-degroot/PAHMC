@@ -1,6 +1,11 @@
 .DS_Store
 out.gv
 
+*.yaml
+*.out
+*.log
+RRKM/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
