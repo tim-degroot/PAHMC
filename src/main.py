@@ -93,12 +93,8 @@ def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename)
             elif molecule.edges[m][n] == "DD":
                 molecule.DD_time += dt
 
-        # Carry out the reaction
         if "to" in reactionkey:
-            # First some bookkeeping (saving the position of the aliphatic site and such)
-            # Copy key and remove the atom to move (first character of string)
             key = reactionkey.replace(reactionkey[0], "")
-            # Split the remaining key into the current site number, and the next site number
             current = key.split("to")[0]
             molecule.positions.append(current)
 
