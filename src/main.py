@@ -207,7 +207,7 @@ if __name__ == "__main__":
         prog="PAHMC", description="Perform Monte Carlo simulation of scrambling and photodissociation reactions on PAHs."
     )
     parser.add_argument("inputfile", type=str, help="Input YAML file")
-    parser.add_argument("cores", type=int, help="Number of parallel processes to run")
+    parser.add_argument("-c", "--cores", type=int, help="Number of parallel processes to run", default=mp.cpu_count())
     parser.add_argument("-o", "--output", type=str, help="Output file", default=None)
     parser.add_argument("-l", "--log", type=str, help="Log file", default=None)
     parser.add_argument("-d", "--debugging", action='store_true', help="Enable debugging")
