@@ -15,46 +15,18 @@ from PAHMC.Functions import Choose_reaction
 from PAHMC.Input import Input_reader
 from PAHMC.Molecule import Molecule
 from PAHMC.Ratecheck import Check_available_rates
-from PAHMC.Output import STD_Output
-from PAHMC.Output import Data_Output
-from PAHMC.Output import Structure_Output
-from PAHMC.Output import End_Structures_Output
+from PAHMC.Output import (
+    STD_Output,
+    Data_Output,
+    Structure_Output,
+    End_Structures_Output,
+)
 
 
-def run_iterations(start, end, input, value, molecule, queue, outputfile):
-    logger.info(f"Running iterations {start + 1}-{end} out of {input.iterations}...")
-
-    processes = [
-        mp.Process(
-            target=Parallel_Single_MC,
-            args=(
-                value,
-                input.t_max,
-                cp.deepcopy(molecule) if end == input.iterations else molecule,
-                input,
-                queue,
-                j_iter,
-                outputfile,
-            ),
-        )
-        for j_iter in range(start, end)
-    ]
-
-    for process in processes:
-        process.start()
-
-    for process in processes:
-        process.join()
-
-
-def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename):
-    """Run a single MC"""
-
+def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename, debug):
     print(f"MC {j_iter} starting", flush=True)
 
-    # Make a list of all reaction keys that have rates specified
     specified_rates = list(rates.reactionrates.keys())
-
     energy = cp.copy(E)
     time = 0
     total_hops = 0
@@ -63,12 +35,10 @@ def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename)
     diss_position = None
 
     while time < max_time:
-
-        if j_iter == 1:  # TODO: Discuss whether to depreceate with Alessandra
+        if debug and j_iter == 1:
             Structure_Output(outfilename, E, j_iter, molecule)
 
         molecule.possible_reactions = Possible_reactions(molecule, specified_rates)
-
         reactionkey, dt = Choose_reaction(energy, molecule.possible_reactions, rates)
 
         if reactionkey == None:
@@ -76,7 +46,6 @@ def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename)
             break
 
         time += dt
-
         energy -= rates.dE[reactionkey]
 
         if molecule.al_place == "e":
@@ -102,11 +71,11 @@ def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename)
                 D_hops += 1
 
             React.Do_scramble(reactionkey, molecule)
+
         elif "diss" in reactionkey:
             diss_atom = reactionkey[0]
             diss_position = reactionkey.replace(reactionkey[0], "")
             diss_position = diss_position.replace("diss", "")
-
             React.Do_dissociation(diss_atom, molecule)
             break
 
@@ -132,15 +101,76 @@ def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename)
     )
 
 
-def Do_MC(inputfile, outputfile, cores):
-    """Function to perform multiple Monte Carlo simulations"""
+def worker(iter, input, value, molecule, queue, outputfile, debug):
+    Parallel_Single_MC(
+        value,
+        input.t_max,
+        cp.deepcopy(molecule),
+        input,
+        queue,
+        iter,
+        outputfile,
+        debug,
+    )
 
-    queue = mp.Queue()
 
+def process_results(queue, input, value, iter):
+    while True:
+        (
+            diss_atom,
+            diss_position,
+            time,
+            hops,
+            D_hops,
+            end_struct,
+            HH_time,
+            HD_time,
+            DD_time,
+            mc,
+        ) = queue.get()
+
+        if diss_atom is None:
+            dissociation_atoms[value]["None"] += 1
+        else:
+            dissociation_atoms[value][diss_atom] += 1
+            dissociation_positions[value][diss_position] = (
+                dissociation_positions[value].get(diss_position, 0) + 1
+            )
+            dissociation_times[value].append(time)
+
+        N_scramble_hops[value].append(hops)
+        N_D_hops[value].append(D_hops)
+
+        Data_Output(
+            outputfile,
+            value,
+            diss_atom,
+            diss_position,
+            time,
+            hops,
+            D_hops,
+            HH_time,
+            HD_time,
+            DD_time,
+            mc,
+        )
+
+        if diss_atom is not None:
+            End_Structures_Output(outputfile, value, end_struct, mc)
+
+        if (
+            len(N_scramble_hops[value]) == iter + 1
+            or len(N_scramble_hops[value]) == input.iterations
+        ):
+            break
+
+
+def main(inputfile, outputfile, cores, debug):
+    manager = mp.Manager()
+    queue = manager.Queue()
+    logger.info(f"Reading data from: {inputfile}")
     input = Input_reader(inputfile)
-    logger.info(f"Read data from: {inputfile}")
     warn_setting = input.handling
-
     molecule = Molecule(input)
 
     Check_available_rates(input, molecule, warn_setting)
@@ -152,6 +182,7 @@ def Do_MC(inputfile, outputfile, cores):
             input.energy_range[0], input.energy_range[1], num=input.energy_range[2] + 1
         )
 
+    global dissociation_atoms, dissociation_times, dissociation_positions, N_scramble_hops, N_D_hops
     dissociation_atoms = {}
     dissociation_times = {}
     dissociation_positions = {}
@@ -168,85 +199,46 @@ def Do_MC(inputfile, outputfile, cores):
         for i in range(len(molecule.edge_numbers)):
             dissociation_positions[value][i] = 0
 
-        if __name__ == "__main__":
-            for iter in range(0, input.iterations, cores):
-                end = (
-                    iter + cores
-                    if iter + cores < input.iterations
-                    else input.iterations
-                )
-                run_iterations(iter, end, input, value, molecule, queue, outputfile)
+        pool = mp.Pool(cores)
 
-                while True:
-                    (
-                        diss_atom,
-                        diss_position,
-                        time,
-                        hops,
-                        D_hops,
-                        end_struct,
-                        HH_time,
-                        HD_time,
-                        DD_time,
-                        mc,
-                    ) = queue.get()
+    logger.info("Starting simulations")
+    tasks = [
+        (iter, input, value, molecule, queue, outputfile, debug)
+        for iter in range(input.iterations)
+    ]
+    pool.starmap(worker, tasks)
+    pool.close()
+    pool.join()
+    logger.info("Finished simulations")
 
-                    if diss_atom == None:
-                        dissociation_atoms[value]["None"] += 1
-                    else:
-                        logger.info(
-                            f"diss_atom={diss_atom}, diss_position={diss_position}, value={value}, time={time}, hops={hops}, D_hops={D_hops}"
-                        )
-                        dissociation_atoms[value][diss_atom] += 1
-                        dissociation_positions[value][diss_position] = (
-                            dissociation_positions[value].get(diss_position, 0) + 1
-                        )
-                        dissociation_times[value].append(time)
-                    N_scramble_hops[value].append(hops)
-                    N_D_hops[value].append(D_hops)
+    process_results(queue, input, value, input.iterations)
 
-                    Data_Output(
-                        outputfile,
-                        value,
-                        diss_atom,
-                        diss_position,
-                        time,
-                        hops,
-                        D_hops,
-                        HH_time,
-                        HD_time,
-                        DD_time,
-                        mc,
-                    )
-
-                    if diss_atom != None:
-                        End_Structures_Output(outputfile, value, end_struct, mc)
-
-                    if (
-                        len(N_scramble_hops[value]) == iter + cores
-                        or len(N_scramble_hops[value]) == input.iterations
-                    ):
-                        break
-
-    if __name__ == "__main__":
-        STD_Output(
-            outputfile,
-            dissociation_atoms,
-            dissociation_positions,
-            dissociation_times,
-            N_scramble_hops,
-            N_D_hops,
-        )
+    STD_Output(
+        outputfile,
+        dissociation_atoms,
+        dissociation_positions,
+        dissociation_times,
+        N_scramble_hops,
+        N_D_hops,
+    )
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        prog="PAHMC", description="Process input file and rate definition file."
+        prog="PAHMC",
+        description="Perform Monte Carlo simulation of scrambling and photodissociation reactions on PAHs.",
     )
     parser.add_argument("inputfile", type=str, help="Input YAML file")
-    parser.add_argument("cores", type=int, help="Number of parallel processes to run")
+    parser.add_argument(
+        "-c",
+        "--cores",
+        type=int,
+        help="Number of parallel processes to run",
+        default=mp.cpu_count(),
+    )
     parser.add_argument("-o", "--output", type=str, help="Output file", default=None)
     parser.add_argument("-l", "--log", type=str, help="Log file", default=None)
+    parser.add_argument("-d", "--debug", action="store_true", help="Enable debugging")
 
     args = parser.parse_args()
 
@@ -254,6 +246,8 @@ if __name__ == "__main__":
 
     outputfile = sim_name + ".out" if args.output is None else args.output
     logfile = sim_name + ".log" if args.log is None else args.log
+
+    debug = args.debug
 
     logging.basicConfig(
         filename=logfile,
@@ -264,6 +258,6 @@ if __name__ == "__main__":
 
     logger = logging.getLogger(__name__)
 
-    Do_MC(args.inputfile, outputfile, args.cores)
+    main(args.inputfile, outputfile, args.cores, args.debug)
 
     logger.info("Simulation done.")
