@@ -166,6 +166,7 @@ def process_results(queue, input, value, iter):
 
 
 def main(inputfile, outputfile, cores, debug):
+    logger.info(f"Running on {cores} cores")
     manager = mp.Manager()
     queue = manager.Queue()
     logger.info(f"Reading data from: {inputfile}")
