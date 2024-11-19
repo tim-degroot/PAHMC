@@ -4,7 +4,7 @@ out.gv
 *.yaml
 *.out
 *.log
-RRKM/
+Rates/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
