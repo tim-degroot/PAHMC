@@ -176,12 +176,7 @@ def main(inputfile, outputfile, cores, debug):
 
     Check_available_rates(input, molecule, warn_setting)
 
-    if isinstance(input.energy_range, float):
-        Energy = [input.energy_range]
-    else:
-        Energy = np.linspace(
-            input.energy_range[0], input.energy_range[1], num=input.energy_range[2] + 1
-        )
+    Energy = input.energy
 
     global dissociation_atoms, dissociation_times, dissociation_positions, N_scramble_hops, N_D_hops
     dissociation_atoms = {}
@@ -190,21 +185,20 @@ def main(inputfile, outputfile, cores, debug):
     N_scramble_hops = {}
     N_D_hops = {}
 
-    for value in Energy:
-        dissociation_atoms[value] = {"H": 0, "D": 0, "None": 0}
-        N_scramble_hops[value] = []
-        N_D_hops[value] = []
-        dissociation_times[value] = []
-        dissociation_positions[value] = {}
+    dissociation_atoms[Energy] = {"H": 0, "D": 0, "None": 0}
+    N_scramble_hops[Energy] = []
+    N_D_hops[Energy] = []
+    dissociation_times[Energy] = []
+    dissociation_positions[Energy] = {}
 
-        for i in range(len(molecule.edge_numbers)):
-            dissociation_positions[value][i] = 0
+    for i in range(len(molecule.edge_numbers)):
+        dissociation_positions[Energy][i] = 0
 
         pool = mp.Pool(cores)
 
     logger.info("Starting simulations")
     tasks = [
-        (iter, input, value, molecule, queue, outputfile, debug)
+        (iter, input, Energy, molecule, queue, outputfile, debug)
         for iter in range(input.iterations)
     ]
     pool.starmap(worker, tasks)
@@ -212,7 +206,7 @@ def main(inputfile, outputfile, cores, debug):
     pool.join()
     logger.info("Finished simulations")
 
-    process_results(queue, input, value, input.iterations)
+    process_results(queue, input, Energy, input.iterations)
 
     STD_Output(
         outputfile,
