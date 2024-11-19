@@ -15,10 +15,15 @@ from PAHMC.Functions import Choose_reaction
 from PAHMC.Input import Input_reader
 from PAHMC.Molecule import Molecule
 from PAHMC.Ratecheck import Check_available_rates
-from PAHMC.Output import STD_Output, Data_Output, Structure_Output, End_Structures_Output
+from PAHMC.Output import (
+    STD_Output,
+    Data_Output,
+    Structure_Output,
+    End_Structures_Output,
+)
 
 
-def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename, debugging):
+def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename, debug):
     print(f"MC {j_iter} starting", flush=True)
 
     specified_rates = list(rates.reactionrates.keys())
@@ -30,7 +35,7 @@ def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename,
     diss_position = None
 
     while time < max_time:
-        if debugging and j_iter == 1:
+        if debug and j_iter == 1:
             Structure_Output(outfilename, E, j_iter, molecule)
 
         molecule.possible_reactions = Possible_reactions(molecule, specified_rates)
@@ -96,8 +101,18 @@ def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename,
     )
 
 
-def worker(iter, input, value, molecule, queue, outputfile, debugging):
-    Parallel_Single_MC(value, input.t_max, cp.deepcopy(molecule), input, queue, iter, outputfile, debugging)
+def worker(iter, input, value, molecule, queue, outputfile, debug):
+    Parallel_Single_MC(
+        value,
+        input.t_max,
+        cp.deepcopy(molecule),
+        input,
+        queue,
+        iter,
+        outputfile,
+        debug,
+    )
+
 
 def process_results(queue, input, value, iter):
     while True:
@@ -143,11 +158,14 @@ def process_results(queue, input, value, iter):
         if diss_atom is not None:
             End_Structures_Output(outputfile, value, end_struct, mc)
 
-        if len(N_scramble_hops[value]) == iter + 1 or len(N_scramble_hops[value]) == input.iterations:
+        if (
+            len(N_scramble_hops[value]) == iter + 1
+            or len(N_scramble_hops[value]) == input.iterations
+        ):
             break
 
 
-def main(inputfile, outputfile, cores, debugging):
+def main(inputfile, outputfile, cores, debug):
     manager = mp.Manager()
     queue = manager.Queue()
     logger.info(f"Reading data from: {inputfile}")
@@ -184,7 +202,10 @@ def main(inputfile, outputfile, cores, debugging):
         pool = mp.Pool(cores)
 
     logger.info("Starting simulations")
-    tasks = [(iter, input, value, molecule, queue, outputfile, debugging) for iter in range(input.iterations)]
+    tasks = [
+        (iter, input, value, molecule, queue, outputfile, debug)
+        for iter in range(input.iterations)
+    ]
     pool.starmap(worker, tasks)
     pool.close()
     pool.join()
@@ -204,13 +225,20 @@ def main(inputfile, outputfile, cores, debugging):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        prog="PAHMC", description="Perform Monte Carlo simulation of scrambling and photodissociation reactions on PAHs."
+        prog="PAHMC",
+        description="Perform Monte Carlo simulation of scrambling and photodissociation reactions on PAHs.",
     )
     parser.add_argument("inputfile", type=str, help="Input YAML file")
-    parser.add_argument("-c", "--cores", type=int, help="Number of parallel processes to run", default=mp.cpu_count())
+    parser.add_argument(
+        "-c",
+        "--cores",
+        type=int,
+        help="Number of parallel processes to run",
+        default=mp.cpu_count(),
+    )
     parser.add_argument("-o", "--output", type=str, help="Output file", default=None)
     parser.add_argument("-l", "--log", type=str, help="Log file", default=None)
-    parser.add_argument("-d", "--debugging", action='store_true', help="Enable debugging")
+    parser.add_argument("-d", "--debug", action="store_true", help="Enable debugging")
 
     args = parser.parse_args()
 
@@ -219,7 +247,7 @@ if __name__ == "__main__":
     outputfile = sim_name + ".out" if args.output is None else args.output
     logfile = sim_name + ".log" if args.log is None else args.log
 
-    debugging = args.debugging
+    debug = args.debug
 
     logging.basicConfig(
         filename=logfile,
@@ -230,6 +258,6 @@ if __name__ == "__main__":
 
     logger = logging.getLogger(__name__)
 
-    main(args.inputfile, outputfile, args.cores, args.debugging)
+    main(args.inputfile, outputfile, args.cores, args.debug)
 
     logger.info("Simulation done.")
