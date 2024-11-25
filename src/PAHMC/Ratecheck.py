@@ -75,7 +75,10 @@ def Check_available_rates(rates, molecule, warn_setting):
     """Checks if all rates are specified for every available edge, and acts according to setting"""
 
     needed_rates = Determine_needed_rates(
-        molecule.Deuterium, molecule.edge_numbers, molecule.link_numbers, molecule.cross_links
+        molecule.Deuterium,
+        molecule.edge_numbers,
+        molecule.link_numbers,
+        molecule.cross_links,
     )
 
     for key in needed_rates:

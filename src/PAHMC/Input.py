@@ -124,19 +124,22 @@ class Input_reader:
 
         self.init_links_numbers = tuple(self.mol_links_numbers)
 
-        cross_links = data.get('Initial cross-links').split()
-        cross_links_tuples = [tuple(map(str, item.strip('()').split(','))) for item in cross_links]
+        cross_links = data.get("Initial cross-links").split()
+        cross_links_tuples = [
+            tuple(map(str, item.strip("()").split(","))) for item in cross_links
+        ]
 
         self.cross_links = {}
         for a, b in cross_links_tuples:
             self.cross_links[a] = b
             self.cross_links[b] = a
 
-
         try:
             self.energy = float(data.get("Energy"))
         except ValueError:
-            logger.error("Cannot understand the simulation energy given, it should be a single energy. ")
+            logger.error(
+                "Cannot understand the simulation energy given, it should be a single energy. "
+            )
 
         try:
             self.iterations = int(data.get("Iterations"))

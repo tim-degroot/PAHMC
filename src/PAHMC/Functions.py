@@ -62,7 +62,6 @@ def Possible_reactions(molecule, specified_rates):
         i, j = molecule.index[0]
 
     if molecule.al_place == "e":
-        # count how many deuterium in the aliphatic site
         deut = molecule.edges[i][j].count("D")
 
         current = molecule.edge_numbers[i][j]
@@ -80,7 +79,7 @@ def Possible_reactions(molecule, specified_rates):
             prev = molecule.edge_numbers[i][j - 1]
             next = molecule.link_numbers[i][0]
 
-    if molecule.al_place == "l": # TODO: Implement skeleton-hopping
+    if molecule.al_place == "l":
         deut = molecule.links[i][j].count("D")
         current = molecule.link_numbers[i][j]
 
@@ -102,7 +101,7 @@ def Possible_reactions(molecule, specified_rates):
                 next = molecule.edge_numbers[i + 1][0]
             else:
                 next = molecule.edge_numbers[0][0]
-    
+
     if current in molecule.cross_links.keys():
         cross = molecule.cross_links.get(current)
         reactions.append(f"H{current}to{cross}")
