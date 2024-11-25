@@ -42,8 +42,6 @@ def Data_Output(
 
 
 def Structure_Output(outfilename, E, iteration, molecule):
-    # Open files
-
     fname = outfilename.split(".")[0]
 
     struct_file = open(f"{fname}_{E}_iteration_{iteration}_mol_structures.log", "a")
@@ -58,8 +56,6 @@ def Structure_Output(outfilename, E, iteration, molecule):
 
 
 def End_Structures_Output(outfilename, E, edge, mc):
-    # Open files
-
     fname = outfilename.split(".")[0]
 
     endstruct_file = open(f"{fname}_{E}_end_structures.out", "a")

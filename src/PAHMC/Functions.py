@@ -80,7 +80,7 @@ def Possible_reactions(molecule, specified_rates):
             prev = molecule.edge_numbers[i][j - 1]
             next = molecule.link_numbers[i][0]
 
-    if molecule.al_place == "l":
+    if molecule.al_place == "l": # TODO: Implement skeleton-hopping
         deut = molecule.links[i][j].count("D")
         current = molecule.link_numbers[i][j]
 
@@ -102,47 +102,42 @@ def Possible_reactions(molecule, specified_rates):
                 next = molecule.edge_numbers[i + 1][0]
             else:
                 next = molecule.edge_numbers[0][0]
+    
+    if current in molecule.cross_links.keys():
+        cross = molecule.cross_links.get(current)
+        reactions.append(f"H{current}to{cross}")
+        print(current, molecule.cross_links.get(current))
 
     if deut == 0:
-        # Scrambling
         reactions.append(f"H{current}to{prev}")
         reactions.append(f"H{current}to{next}")
-        # Dissociation
         reactions.append(f"H{current}diss")
         # if on edge two hydrogens that can move, so append again
         if molecule.al_place == "e":
-            # Scrambling
             reactions.append(f"H{current}to{prev}")
             reactions.append(f"H{current}to{next}")
-            # Dissociation
             reactions.append(f"H{current}diss")
 
     elif deut == 1:
-        # Scrambling
         reactions.append(f"D{current}to{prev}")
         reactions.append(f"D{current}to{next}")
-        # Dissociation
         reactions.append(f"D{current}diss")
         if molecule.al_place == "e":
-            # Scrambling
             reactions.append(f"H{current}to{prev}")
             reactions.append(f"H{current}to{next}")
-            # Dissociation
             reactions.append(f"H{current}diss")
 
     elif deut == 2:
-        # Scrambling
         reactions.append(f"D{current}to{prev}")
         reactions.append(f"D{current}to{next}")
-        # Dissociation
         reactions.append(f"D{current}diss")
         # if on edge two hydrogens that can move, so append again
         if molecule.al_place == "e":
-            # Scrambling
             reactions.append(f"D{current}to{prev}")
             reactions.append(f"D{current}to{next}")
-            # Dissociation
             reactions.append(f"D{current}diss")
+
+    #
 
     reactions = Remove_missing_rate(reactions, specified_rates)
 
@@ -176,40 +171,27 @@ def Choose_reaction(E, possible_reactions, rates):
     np.random.seed()
 
     degeneracy, nreactions = Weights_degeneracy(possible_reactions)
+    reactionkeys, weights = map(list, zip(*degeneracy.items()))
 
-    # split reaction keys and their weights (degeneracies)
-    reactionkeys = list(degeneracy.keys())
-    weights = list(degeneracy.values())
-
-    # Prepare empty arrays for reaction rates and reaction probabilities
     r_probabilities = np.zeros(nreactions)
     r_rate = np.zeros(nreactions)
 
     for i, r_key in enumerate(reactionkeys):
-
-        # Determine the closes match for the rate for a certain energy:
         rate_idx = np.argmin((np.abs(rates.reactionrates[r_key][0, :] - E)))
-
-        # Save the rate
         r_rate[i] = rates.reactionrates[r_key][1, rate_idx]
 
-    # Make sure that if all rates are 0 the function quits (as there is no reaction able to be chosen)
     if np.sum(r_rate) == 0:
         reaction = None
         dt = None
         return reaction, dt
 
-    # Determine size of timestep
     dt = 1 / np.sum(r_rate)
 
-    # Determine probabilities of the reactions
     for j in range(nreactions):
         r_probabilities[j] = Probability(dt, weights[j], r_rate[j])
 
-    # Normalize the probabilities (otherwise numpy.random.choice gives an error)
     norm_r_prob = r_probabilities / np.sum(r_probabilities)
 
-    # Choose a reaction according to the probabilities
     reaction = np.random.choice(reactionkeys, p=norm_r_prob)
 
     return reaction, dt

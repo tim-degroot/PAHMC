@@ -1,6 +1,6 @@
 # PAH-MC
 
-Monte Carlo Simulation on deuterated PAHs.
+Perform Monte Carlo simulation of scrambling and photodissociation reactions on PAHs.
 
 Associated research which include usage:
 
@@ -19,18 +19,19 @@ mamba create -n PAH-MC numpy
 How to run the program:
 
 ```bash
-usage: PAHMC [-h] [-o OUTPUT] [-l LOG] inputfile cores
+usage: PAHMC [-h] [-c CORES] [-o OUTPUT] [-l LOG] [-d] inputfile
 
-Process input file and rate definition file.
+Perform Monte Carlo simulation of scrambling and photodissociation reactions on PAHs.
 
 positional arguments:
   inputfile            Input YAML file
-  cores                Number of parallel processes to run
 
 options:
   -h, --help           show this help message and exit
+  -c, --cores CORES    Number of parallel processes to run
   -o, --output OUTPUT  Output file
   -l, --log LOG        Log file
+  -d, --debug          Enable debugging
 ```
 
 If no Output or Log files are specified the program uses the name of `inputfile` with the `.out` and `.log` extensions.
@@ -39,15 +40,16 @@ If you are going to run this program on a supercomputer/computer cluster that us
 
 ```bash
 #!/bin/bash
-#SBATCH -t 4:00:00
-#SBATCH -N 1
-#SBATCH --tasks-per-node 36
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task 128
+#SBATCH --partition=rome
 
-module load 2022
-module load Python/3.10.4-GCCcore-11.3.0
-module load Anaconda3/2022.05
+module load 2024
+module load Python/3.12.3-GCCcore-13.3.0
+module load Anaconda3/2024.06-1
 
-python src/main.py $1 36
+python ../PAHMC/src/main.py $1
 ```
 
 ```bash

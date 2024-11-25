@@ -15,6 +15,7 @@ class Molecule:
         self.links = c.deepcopy(input.mol_links)
         self.link_numbers = c.deepcopy(input.mol_links_numbers)
         self.Deuterium = False
+        self.cross_links = input.cross_links # TODO: Testing
 
         self.index, self.al_deuterium = Functions.Find_aliphatic_site(self.edges)
 
