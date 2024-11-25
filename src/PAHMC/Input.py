@@ -127,19 +127,17 @@ class Input_reader:
         cross_links = data.get('Initial cross-links').split()
         cross_links_tuples = [tuple(map(str, item.strip('()').split(','))) for item in cross_links]
 
-        self.cross_links = {} # TODO: Implement in molecule
+        self.cross_links = {}
         for a, b in cross_links_tuples:
             self.cross_links[a] = b
             self.cross_links[b] = a
 
 
-        # Read in the range of the simulation, and convert to float/integer
         try:
             self.energy = float(data.get("Energy"))
         except ValueError:
             logger.error("Cannot understand the simulation energy given, it should be a single energy. ")
 
-        # Read in the number of simulations for each energy
         try:
             self.iterations = int(data.get("Iterations"))
         except ValueError:
