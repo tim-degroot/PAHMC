@@ -104,9 +104,21 @@ def Possible_reactions(molecule, specified_rates):
 
     if current in molecule.cross_links.keys():
         cross = molecule.cross_links.get(current)
-        reactions.append(f"H{current}to{cross}")
-        print(current, molecule.cross_links.get(current))
-
+        if molecule.al_place == "l":
+            if deut == 0:
+                reactions.append(f"H{current}to{cross}")
+            elif deut == 1:
+                reactions.append(f"D{current}to{cross}")
+        if molecule.al_place == "e":
+            if deut == 0:
+                if deut == 0:
+                    reactions.append(f"H{current}to{cross}")
+                elif deut == 1:
+                    reactions.append(f"D{current}to{cross}")
+                    reactions.append(f"H{current}to{cross}")
+                elif deut == 2:
+                    reactions.append(f"D{current}to{cross}")
+    
     if deut == 0:
         reactions.append(f"H{current}to{prev}")
         reactions.append(f"H{current}to{next}")

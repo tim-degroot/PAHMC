@@ -66,7 +66,8 @@ def Determine_needed_rates(deuterium, edge_numbering, link_numbering, cross_link
                 all_reactions.append("D" + link_numbering[i][m] + "diss")
 
     for a, b in cross_links.items():
-        all_reactions.append(f"D{a}to{b}" if deuterium else f"H{a}to{b}")
+        all_reactions.append(f"D{a}to{b}")
+        all_reactions.append(f"H{a}to{b}")
 
     return all_reactions
 
