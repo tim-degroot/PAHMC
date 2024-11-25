@@ -5,7 +5,7 @@ import sys
 logger = logging.getLogger(__name__)
 
 
-def Determine_needed_rates(deuterium, edge_numbering, link_numbering):
+def Determine_needed_rates(deuterium, edge_numbering, link_numbering, cross_links):
     # deuterium variable is a boolean for if deuterium is present or not
     all_reactions = []
     length = len(
@@ -56,16 +56,18 @@ def Determine_needed_rates(deuterium, edge_numbering, link_numbering):
             )
 
         for l in range(len(edge_numbering[i])):
-            # Append dissociation reaction keys
             all_reactions.append("H" + edge_numbering[i][l] + "diss")
             if deuterium:
                 all_reactions.append("D" + edge_numbering[i][l] + "diss")
 
         for m in range(len(link_numbering[i])):
-            # Append dissociation reaction keys
             all_reactions.append("H" + link_numbering[i][m] + "diss")
             if deuterium:
                 all_reactions.append("D" + link_numbering[i][m] + "diss")
+
+    for a, b in cross_links.items():
+        all_reactions.append(f"D{a}to{b}")
+        all_reactions.append(f"H{a}to{b}")
 
     return all_reactions
 
@@ -73,9 +75,8 @@ def Determine_needed_rates(deuterium, edge_numbering, link_numbering):
 def Check_available_rates(rates, molecule, warn_setting):
     """Checks if all rates are specified for every available edge, and acts according to setting"""
 
-    # Determine the reaction keys for all possible reactions on the molecule
     needed_rates = Determine_needed_rates(
-        molecule.Deuterium, molecule.edge_numbers, molecule.link_numbers
+        molecule.Deuterium, molecule.edge_numbers, molecule.link_numbers, molecule.cross_links
     )
 
     for key in needed_rates:

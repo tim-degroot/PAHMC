@@ -35,7 +35,7 @@ def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename,
     diss_position = None
 
     while time < max_time:
-        if debug and j_iter == 1:
+        if debug and j_iter == 0:
             Structure_Output(outfilename, E, j_iter, molecule)
 
         molecule.possible_reactions = Possible_reactions(molecule, specified_rates)

@@ -124,6 +124,15 @@ class Input_reader:
 
         self.init_links_numbers = tuple(self.mol_links_numbers)
 
+        cross_links = data.get('Initial cross-links').split()
+        cross_links_tuples = [tuple(map(str, item.strip('()').split(','))) for item in cross_links]
+
+        self.cross_links = {} # TODO: Implement in molecule
+        for a, b in cross_links_tuples:
+            self.cross_links[a] = b
+            self.cross_links[b] = a
+
+
         # Read in the range of the simulation, and convert to float/integer
         try:
             self.energy = float(data.get("Energy"))
