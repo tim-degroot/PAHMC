@@ -235,6 +235,14 @@ def main(inputfile, outputfile, cores, debug):
     )
 
 
+def _get_core_count() -> int:
+    try:
+        return len(os.sched_getaffinity(0))
+    except AttributeError:
+        return mp.cpu_count()
+
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog="PAHMC",
@@ -246,7 +254,7 @@ if __name__ == "__main__":
         "--cores",
         type=int,
         help="Number of parallel processes to run",
-        default=len(os.sched_getaffinity(0)),
+        default=_get_core_count(),
     )
     parser.add_argument("-o", "--output", type=str, help="Output file", default=None)
     parser.add_argument("-l", "--log", type=str, help="Log file", default=None)
