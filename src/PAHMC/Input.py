@@ -180,5 +180,5 @@ class Input_reader:
                 self.reactionrates[reac] = rates
                 self.dE[reac] = delta
 
-            N_rates = len(self.reactionrates.keys())
-            logger.info(f"{N_rates} rate files successfully read.")
+        N_rates = len(self.reactionrates.keys())
+        logger.info(f"{N_rates} rate files successfully read.")
