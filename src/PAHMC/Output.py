@@ -22,7 +22,7 @@ def Data_Output(
 ):
 
     file_name = outfilename.split(".")[0]
-    file_path = f"{file_name}_{E}_data.log"
+    file_path = f"{file_name}__data.log"
     file_exists = os.path.isfile(file_path)
 
     with open(file_path, "a") as data_file:
@@ -66,7 +66,7 @@ def Data_Output(
 
 def Structure_Output(outfilename, E, iteration, molecule):
     file_name = outfilename.split(".")[0]
-    file_path = f"{file_name}_{E}_iteration_{iteration}_mol_structures.log"
+    file_path = f"{file_name}__iteration_{iteration}_mol_structures.log"
 
     with open(file_path, "a") as struct_file:
         struct_file.write(f"{str(molecule.edges)}\n{str(molecule.links)}\n\n")
@@ -74,7 +74,7 @@ def Structure_Output(outfilename, E, iteration, molecule):
 
 def End_Structures_Output(outfilename, E, edge, mc):
     file_name = outfilename.split(".")[0]
-    file_path = f"{file_name}_{E}_end_structures.out"
+    file_path = f"{file_name}__end_structures.out"
 
     with open(file_path, "a") as endstruct_file:
         endstruct_file.write(f"MC{mc}\t{edge}\n")
@@ -133,7 +133,7 @@ def STD_Output(
 
 def Hops_Output(outfilename, mc, key_hops, E):
     file_name = outfilename.split(".")[0]
-    file_path = f"{file_name}_{E}_key_hops.out"
+    file_path = f"{file_name}__key_hops.out"
     file_exists = os.path.isfile(file_path)
 
     with open(file_path, "a") as hops_file:
