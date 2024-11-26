@@ -1,21 +1,19 @@
-# Import relevant libraries
 import numpy as np
 import copy as c
 
-# Import files from PAH-MC
 import PAHMC.Functions as Functions
 
 
 class Molecule:
 
     def __init__(self, input):
-        # Make copies
         self.edges = c.deepcopy(input.mol_edge)
         self.edge_numbers = c.deepcopy(input.mol_edge_numbers)
         self.links = c.deepcopy(input.mol_links)
         self.link_numbers = c.deepcopy(input.mol_links_numbers)
         self.Deuterium = False
-        self.cross_links = input.cross_links
+        self.cross_links = c.deepcopy(input.cross_links)
+        self.reactionkeys = c.deepcopy(input.reactionkeys)
 
         self.index, self.al_deuterium = Functions.Find_aliphatic_site(self.edges)
 

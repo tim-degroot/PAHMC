@@ -118,7 +118,7 @@ def Possible_reactions(molecule, specified_rates):
                     reactions.append(f"H{current}to{cross}")
                 elif deut == 2:
                     reactions.append(f"D{current}to{cross}")
-    
+
     if deut == 0:
         reactions.append(f"H{current}to{prev}")
         reactions.append(f"H{current}to{next}")

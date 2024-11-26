@@ -1,6 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -20,51 +21,63 @@ def Data_Output(
     cross_hops,
 ):
 
-    fname = outfilename.split(".")[0]
+    file_name = outfilename.split(".")[0]
+    file_path = f"{file_name}_{E}_data.log"
+    file_exists = os.path.isfile(file_path)
 
-    data_file = open(f"{fname}_{E}_data.log", "a")
+    with open(file_path, "a") as data_file:
+        if not file_exists:
+            headers = [
+                "MC#",
+                "Diss atom",
+                "Diss pos",
+                "Diss time",
+                "# hops",
+                "# D hops",
+                "# cross hops",
+                "HH time",
+                "HD time",
+                "DD time",
+            ]
+            col_widths = [max(len(str(header)), 10) for header in headers]
+            header_line = "\t".join(
+                f"{header:<{col_widths[i]}}" for i, header in enumerate(headers)
+            )
+            data_file.write(header_line + "\n")
 
-    data_file.write(
-        "MC{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
-            mc,
+        values = [
+            f"MC{mc}",
             dissociation_atom,
             dissociation_position,
-            dissociation_time,
+            round(dissociation_time, 10),
             N_scramble_hops,
             N_D_hops,
             cross_hops,
-            HH_time,
-            HD_time,
-            DD_time,
-        )
-    )
+            round(HH_time, 10),
+            round(HD_time, 10),
+            round(DD_time, 10),
+        ]
 
-    data_file.close()
+        value_line = "\t".join(
+            f"{str(value):<{col_widths[i]}}" for i, value in enumerate(values)
+        )
+        data_file.write(value_line + "\n")
 
 
 def Structure_Output(outfilename, E, iteration, molecule):
-    fname = outfilename.split(".")[0]
+    file_name = outfilename.split(".")[0]
+    file_path = f"{file_name}_{E}_iteration_{iteration}_mol_structures.log"
 
-    struct_file = open(f"{fname}_{E}_iteration_{iteration}_mol_structures.log", "a")
-
-    struct_file.write(str(molecule.edges))
-    struct_file.write("\n")
-    struct_file.write(str(molecule.links))
-    struct_file.write("\n")
-    struct_file.write("\n")
-
-    struct_file.close()
+    with open(file_path, "a") as struct_file:
+        struct_file.write(f"{str(molecule.edges)}\n{str(molecule.links)}\n\n")
 
 
 def End_Structures_Output(outfilename, E, edge, mc):
-    fname = outfilename.split(".")[0]
+    file_name = outfilename.split(".")[0]
+    file_path = f"{file_name}_{E}_end_structures.out"
 
-    endstruct_file = open(f"{fname}_{E}_end_structures.out", "a")
-
-    endstruct_file.write(f"MC{mc}\t{edge}")
-    endstruct_file.write("\n")
-
-    endstruct_file.close()
+    with open(file_path, "a") as endstruct_file:
+        endstruct_file.write(f"MC{mc}\t{edge}\n")
 
 
 def STD_Output(
@@ -77,7 +90,7 @@ def STD_Output(
 ):
     """Creates an output file with a summary of the results"""
 
-    # Currently hardcoded, needs to be incorporated better in future
+    # TODO: Currently hardcoded, needs to be incorporated better in future
     time_bin_size = 1e-06
     hops_bin_size = 50000
     max_time = 0.001
@@ -85,50 +98,57 @@ def STD_Output(
     logger.info("Writing output file...")
     outfile = open(outfilename, "w")
 
-    fname = outfilename.split(".")[0]
+    with open(outfilename, "w") as outfile:
+        energies = list(dissociation_times.keys())
 
-    energies = list(dissociation_times.keys())
+        for E in energies:
+            outfile.write(f"Dissociations for Energy {E}:\n")
+            outfile.write(
+                f"H: {dissociation_atoms[E]['H']}, D: {dissociation_atoms[E]['D']}, None: {dissociation_atoms[E]['None']}\n"
+            )
 
-    for E in energies:
+            outfile.write(f"Dissociation positions for Energy {E}:\n")
+            for key in list(dissociation_positions[E].keys()):
+                outfile.write(f"{key}: {dissociation_positions[E][key]}\n")
 
-        outfile.write(f"Dissociations for Energy {E}:\n")
-        outfile.write(
-            f"H: {dissociation_atoms[E]['H']}, D: {dissociation_atoms[E]['D']}, None: {dissociation_atoms[E]['None']}\n"
+    file_name = outfilename.split(".")[0]
+
+    time_bins = np.arange(0, max_time, time_bin_size)
+    hops_bins = np.arange(0, np.amax(N_scramble_hops[E]), hops_bin_size)
+
+    logger.info("Plotting results...")
+    plt.hist(dissociation_times[E], bins=time_bins)
+    plt.xlabel("Dissociation Time [s]")
+    plt.ylabel("Frequency")
+    plt.title("Dissociation times for energy " + str(E) + " eV")
+    plt.savefig(file_name + "_diss_time.png")
+    plt.clf()
+
+    plt.hist(N_scramble_hops[E], bins=hops_bins)
+    plt.xlabel("Number of hops")
+    plt.ylabel("Frequency")
+    plt.title("Number of hops for energy " + str(E) + " eV")
+    plt.savefig(file_name + "_hops.png")
+
+
+def Hops_Output(outfilename, mc, key_hops, E):
+    file_name = outfilename.split(".")[0]
+    file_path = f"{file_name}_{E}_key_hops.out"
+    file_exists = os.path.isfile(file_path)
+
+    with open(file_path, "a") as hops_file:
+        if not file_exists:
+            sorted_keys = sorted(key_hops.keys())
+            headers = ["MC#"] + sorted_keys
+            col_widths = [len(str(header)) for header in headers]
+            header_line = "\t".join(
+                f"{header:<{col_widths[i]}}" for i, header in enumerate(headers)
+            )
+            hops_file.write(header_line + "\n")
+
+        sorted_keys = sorted(key_hops.keys())
+        values = [f"MC{str(mc)}"] + [str(key_hops[key]) for key in sorted_keys]
+        value_line = "\t".join(
+            f"{value:<{col_widths[i]}}" for i, value in enumerate(values)
         )
-
-        outfile.write(f"Dissociation positions for Energy {E}:\n")
-        for key in list(dissociation_positions[E].keys()):
-            outfile.write(f"{key}: {dissociation_positions[E][key]}\n")
-
-        # make bins for histogram
-        time_bins = np.arange(0, max_time, time_bin_size)
-        hops_bins = np.arange(0, np.amax(N_scramble_hops[E]), hops_bin_size)
-
-        # Save to file
-
-        # time_file = open(fname+'_'+str(E)+'_diss_time.out', 'w')
-        # hops_file = open(fname+'_'+str(E)+'_hops.out', 'w')
-        # D_hops_file = open(fname+'_'+str(E)+'_D_hops.out', 'w')
-
-        # np.savetxt(time_file, dissociation_times[E])
-        # np.savetxt(hops_file, N_scramble_hops[E])
-        # np.savetxt(D_hops_file, N_D_hops[E])
-
-        # time_file.close()
-        # hops_file.close()
-
-        logger.info("Plotting results...")
-        plt.hist(dissociation_times[E], bins=time_bins)
-        plt.xlabel("Dissociation Time [s]")
-        plt.ylabel("Frequency")
-        plt.title("Dissociation times for energy " + str(E) + " eV")
-        plt.savefig(fname + "_diss_time.png")
-        plt.clf()
-
-        plt.hist(N_scramble_hops[E], bins=hops_bins)
-        plt.xlabel("Number of hops")
-        plt.ylabel("Frequency")
-        plt.title("Number of hops for energy " + str(E) + " eV")
-        plt.savefig(fname + "_hops.png")
-
-    outfile.close()
+        hops_file.write(value_line + "\n")

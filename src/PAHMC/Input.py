@@ -1,4 +1,3 @@
-# Import relevant libraries
 import os, re, sys
 import numpy as np
 import logging
@@ -7,16 +6,11 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
-# Import other relevant files
-# (none currently)
 
-
-# Create a class object to contain the parameters of the simulation
 class Input_reader:
     """Takes the input file and initializes a parameter class for the simulation to be run"""
 
     def __init__(self, filename):
-        # Try to open file, raise an error if file was not found
         try:
             file = open(filename, "r")
         except FileNotFoundError:
@@ -37,20 +31,15 @@ class Input_reader:
 
             for j, atoms in enumerate(edge):
 
-                # need to check for correct atom weights in edges
-                # print(atoms)
                 if atoms not in ("H", "D", "HH", "HD", "DD"):
                     logger.error(
                         "Incorrect atoms defined, only no atom (0), hydrogen (H), deuterium (D), or aliphatic groups (HH, HD, DD) are currently supported. "
                     )
                     sys.exit(2)
 
-                # Assemble the seperate parts back together into a filled edge
                 edge[j] = atoms
-            # Edges to use for the simulation
             self.mol_edge[i] = edge
 
-            # keep a record of the initial edge structure just in case
             self.init_edge = [0] * len(self.mol_edge)
 
             for n in range(0, len(self.init_edge)):
@@ -66,17 +55,13 @@ class Input_reader:
                 sys.exit(2)
 
             for j, number in enumerate(edge):
-
-                # Assemble the seperate parts back together into integer filled edge
                 edge[j] = number
-            # Edges to use for the simulation
             self.mol_edge_numbers[i] = edge
 
         if len(self.mol_edge_numbers) is not len(self.mol_edge):
             logger.error("Edges and edge numbering need to have the same size. ")
             sys.exit(2)
 
-        # keep a record of the initial edge structure just in case
         self.init_edge_numbers = [0] * len(self.mol_edge_numbers)
 
         for n in range(0, len(self.init_edge_numbers)):
@@ -164,6 +149,7 @@ class Input_reader:
 
         self.reactionrates = {}
         self.dE = {}
+        self.reactionkeys = {}
 
         if not os.path.isdir(self.rate_dir):
             logger.error(
@@ -183,14 +169,13 @@ class Input_reader:
             rates = np.loadtxt(filepath, unpack=True, skiprows=2)
 
             with open(filepath) as f:
-                firstline = next(f)  # Read in first line of the file
-                # Then select the value of Delta out of the rate file by regular expression
-                # (this regex finds all numbers in the first line, then saves only the last one)
+                firstline = next(f)
                 delta = float(
-                    re.findall(r"[-+]?\d+[\.]?\d*[eE]?[-+]?\d*\b", firstline)[-1]
+                    re.findall(r"[-+]?\d+[\.]?\d*[eE]?[-+]?\d*\b", firstline)[-1] # (this regex finds all numbers in the first line, then saves only the last one)
                 )
 
             for reac in ratelist.split(","):
+                self.reactionkeys[reac] = ratelist.split(",")[0]
                 self.reactionrates[reac] = rates
                 self.dE[reac] = delta
 

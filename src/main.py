@@ -20,6 +20,7 @@ from PAHMC.Output import (
     Data_Output,
     Structure_Output,
     End_Structures_Output,
+    Hops_Output,
 )
 
 
@@ -34,6 +35,7 @@ def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename,
     cross_hops = 0
     diss_atom = None
     diss_position = None
+    key_hops = {key: 0 for key in set(molecule.reactionkeys.values()) if "to" in key}
 
     while time < max_time:
         if debug and j_iter == 0:
@@ -70,9 +72,11 @@ def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename,
 
             if reactionkey[0] == "D":
                 D_hops += 1
-            
+
             if next == molecule.cross_links.get(current):
                 cross_hops += 1
+
+            key_hops[molecule.reactionkeys.get(reactionkey)] += 1
 
             React.Do_scramble(reactionkey, molecule)
 
@@ -102,6 +106,7 @@ def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename,
             molecule.DD_time,
             j_iter,
             cross_hops,
+            key_hops,
         ]
     )
 
@@ -133,6 +138,7 @@ def process_results(queue, input, value, iter):
             DD_time,
             mc,
             cross_hops,
+            key_hops,
         ) = queue.get()
 
         if diss_atom is None:
@@ -161,6 +167,8 @@ def process_results(queue, input, value, iter):
             mc,
             cross_hops,
         )
+
+        Hops_Output(outputfile, mc, key_hops, value)
 
         if diss_atom is not None:
             End_Structures_Output(outputfile, value, end_struct, mc)
@@ -198,10 +206,11 @@ def main(inputfile, outputfile, cores, debug):
     dissociation_times[Energy] = []
     dissociation_positions[Energy] = {}
 
-    for i in range(len(molecule.edge_numbers)):
-        dissociation_positions[Energy][i] = 0
+    for i in molecule.edge_numbers:
+        for j in i:
+            dissociation_positions[Energy][j] = 0
 
-        pool = mp.Pool(cores)
+    pool = mp.Pool(cores)
 
     logger.info("Starting simulations")
     tasks = [
