@@ -2,7 +2,7 @@
 
 Perform Monte Carlo simulation of scrambling and photodissociation reactions on PAHs.
 
-Associated research which include usage:
+Associated research:
 
 1. [Carels, E. J. Isotopic Effects Revealed Upon Photolysis of PAHs. (Universiteit van Amsterdam, 2023).](https://scripties.uba.uva.nl/search?id=record_53847)
 
@@ -11,7 +11,7 @@ Associated research which include usage:
 Install the prerequisites using Mamba or another environment manager:
 
 ```python
-mamba create -n PAH-MC numpy
+mamba create -n PAHMC numpy, matplotlib
 ```
 
 ## Usage
