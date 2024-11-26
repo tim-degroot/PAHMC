@@ -8,6 +8,7 @@ import numpy as np
 import multiprocessing as mp
 import copy as cp
 import random
+import os
 
 from PAHMC.Functions import Possible_reactions
 import PAHMC.Reactions as React
@@ -245,7 +246,7 @@ if __name__ == "__main__":
         "--cores",
         type=int,
         help="Number of parallel processes to run",
-        default=mp.cpu_count(),
+        default=len(os.sched_getaffinity(0)),
     )
     parser.add_argument("-o", "--output", type=str, help="Output file", default=None)
     parser.add_argument("-l", "--log", type=str, help="Log file", default=None)
