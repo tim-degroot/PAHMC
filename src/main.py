@@ -31,6 +31,7 @@ def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename,
     time = 0
     total_hops = 0
     D_hops = 0
+    cross_hops = 0
     diss_atom = None
     diss_position = None
 
@@ -64,11 +65,14 @@ def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename,
 
         if "to" in reactionkey:
             key = reactionkey.replace(reactionkey[0], "")
-            current = key.split("to")[0]
+            current, next = key.split("to")
             molecule.positions.append(current)
 
             if reactionkey[0] == "D":
                 D_hops += 1
+            
+            if next == molecule.cross_links.get(current):
+                cross_hops += 1
 
             React.Do_scramble(reactionkey, molecule)
 
@@ -97,6 +101,7 @@ def Parallel_Single_MC(E, max_time, molecule, rates, queue, j_iter, outfilename,
             molecule.HD_time,
             molecule.DD_time,
             j_iter,
+            cross_hops,
         ]
     )
 
@@ -127,6 +132,7 @@ def process_results(queue, input, value, iter):
             HD_time,
             DD_time,
             mc,
+            cross_hops,
         ) = queue.get()
 
         if diss_atom is None:
@@ -153,6 +159,7 @@ def process_results(queue, input, value, iter):
             HD_time,
             DD_time,
             mc,
+            cross_hops,
         )
 
         if diss_atom is not None:

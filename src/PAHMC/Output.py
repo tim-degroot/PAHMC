@@ -17,21 +17,22 @@ def Data_Output(
     HD_time,
     DD_time,
     mc,
+    cross_hops,
 ):
-    # Open files
 
     fname = outfilename.split(".")[0]
 
     data_file = open(f"{fname}_{E}_data.log", "a")
 
     data_file.write(
-        "MC{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
+        "MC{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
             mc,
             dissociation_atom,
             dissociation_position,
             dissociation_time,
             N_scramble_hops,
             N_D_hops,
+            cross_hops,
             HH_time,
             HD_time,
             DD_time,
