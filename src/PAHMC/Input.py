@@ -171,8 +171,8 @@ class Input_reader:
             with open(filepath) as f:
                 firstline = next(f)
                 delta = float(
-                    re.findall(r"[-+]?\d+[\.]?\d*[eE]?[-+]?\d*\b", firstline)[-1] # (this regex finds all numbers in the first line, then saves only the last one)
-                )
+                    re.findall(r"[-+]?\d+[\.]?\d*[eE]?[-+]?\d*\b", firstline)[-1]
+                )  #  (this regex finds all numbers in the first line, then saves only the last one)
 
             for reac in ratelist.split(","):
                 self.reactionkeys[reac] = ratelist.split(",")[0]
