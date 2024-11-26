@@ -23,27 +23,25 @@ def Data_Output(
 
     file_name = outfilename.split(".")[0]
     file_path = f"{file_name}__data.log"
-    file_exists = os.path.isfile(file_path)
 
     with open(file_path, "a") as data_file:
-        if not file_exists:
-            headers = [
-                "MC#",
-                "Diss atom",
-                "Diss pos",
-                "Diss time",
-                "# hops",
-                "# D hops",
-                "# cross hops",
-                "HH time",
-                "HD time",
-                "DD time",
-            ]
-            col_widths = [max(len(str(header)), 10) for header in headers]
-            header_line = "\t".join(
-                f"{header:<{col_widths[i]}}" for i, header in enumerate(headers)
-            )
-            data_file.write(header_line + "\n")
+        headers = [
+            "MC#",
+            "Diss atom",
+            "Diss pos",
+            "Diss time",
+            "# hops",
+            "# D hops",
+            "# cross hops",
+            "HH time",
+            "HD time",
+            "DD time",
+        ]
+        col_widths = [max(len(str(header)), 10) for header in headers]
+        header_line = "\t".join(
+            f"{header:<{col_widths[i]}}" for i, header in enumerate(headers)
+        )
+        data_file.write(header_line + "\n")
 
         values = [
             f"MC{mc}",
@@ -133,18 +131,16 @@ def STD_Output(
 
 def Hops_Output(outfilename, mc, key_hops, E):
     file_name = outfilename.split(".")[0]
-    file_path = f"{file_name}__key_hops.out"
-    file_exists = os.path.isfile(file_path)
+    file_path = f"{file_name}_key_hops.out"
 
     with open(file_path, "a") as hops_file:
-        if not file_exists:
-            sorted_keys = sorted(key_hops.keys())
-            headers = ["MC#"] + sorted_keys
-            col_widths = [len(str(header)) for header in headers]
-            header_line = "\t".join(
-                f"{header:<{col_widths[i]}}" for i, header in enumerate(headers)
-            )
-            hops_file.write(header_line + "\n")
+        sorted_keys = sorted(key_hops.keys())
+        headers = ["MC#"] + sorted_keys
+        col_widths = [len(str(header)) for header in headers]
+        header_line = "\t".join(
+            f"{header:<{col_widths[i]}}" for i, header in enumerate(headers)
+        )
+        hops_file.write(header_line + "\n")
 
         sorted_keys = sorted(key_hops.keys())
         values = [f"MC{str(mc)}"] + [str(key_hops[key]) for key in sorted_keys]
