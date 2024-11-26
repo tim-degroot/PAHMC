@@ -111,7 +111,7 @@ options:
   -d, --debug          Enable debugging
 ```
 
-If no Output or Log files are specified the program uses the name of `inputfile` with the `.out` and `.log` extensions.
+If no Output or Log files are specified the program uses the name of `inputfile` with different extensions (see [Understanding the output](#understanding-the-output)).
 
 If you are going to run this program on a supercomputer/computer cluster that uses SLURM for the job management create a script and run it:
 
@@ -133,7 +133,7 @@ python ../PAHMC/src/main.py $1
 sbatch mc_slurm.sh <inputfile> 
 ```
 
-This script has been successfully used on the Snellius computer cluster/supercomputer by Surf.
+This script has been successfully used on the Snellius computer cluster by Surf using the above configuration..
 
 ### Understanding the output
 
