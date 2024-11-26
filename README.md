@@ -8,17 +8,23 @@ Associated research:
 
 ## Installation
 
+Clone the repository.
+
 Install the prerequisites using Mamba or another environment manager:
 
 ```python
-mamba create -n PAHMC numpy, matplotlib
+mamba create -n PAHMC numpy, matplotlib, pyyaml
 ```
+
+If installing on a computer cluster you can skip the environment and instead load the modules using [SLURM](https://slurm.schedmd.com) or a similar workload manager (see [Running the program](#running-the-program)).
 
 ## Usage
 
 ### Preparing the `.yaml` input file
 
-We will prepare Anthracene in this example to explain the input file structure.
+The input file uses [YAML](https://yaml.org). While the documentation explains the file structure in a certain order this order is not necessary for the program to work.
+
+We will prepare a simulation of Anthracene in this example to explain the input file structure.
 
 Provide a name for the simulation (optional, currently not used for anything):
 
@@ -26,9 +32,7 @@ Provide a name for the simulation (optional, currently not used for anything):
 Name: Anthracene
 ```
 
-The edge consists of groups of substituents that are linked by links. The edge loops around to itself
-
-![Anthracene numbering](https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Anthracene-numbering.svg/320px-Anthracene-numbering.svg.png)
+The edge consists of groups of substituents that are linked by links. The edge loops around to itself.
 
 Define the initial edge substituents (0 for none, H, D, HH or HD). Only one aliphatic site (HD/HH) supported. Label them according to nomeclature using edge numbers.
 
@@ -44,7 +48,7 @@ Initial links: (0) (0) (0) (0)
 Initial link numbers: (8a) (9a) (4a) (10a)
 ```
 
-Define any cross-links (reactions that are not neighbours on the edge structure). These are defined in pairs.
+Define any cross-links (optional). Cross-links can be any reaction that is not between neighbours on the edge structure. These are defined in pairs.
 
 ```yaml
 Initial cross-links: (8a,10a) (9a,4a)
@@ -133,7 +137,7 @@ This script has been successfully used on the Snellius computer cluster/supercom
 
 ### Understanding the output
 
-The filename of the output is taken from the yaml (`ABC.yaml` gives `filename = ABC`) or can be set manually using the `--OUTPUT` parameter (see above).
+The filename of the output is taken from the yaml (`ABC.yaml` gives `filename = ABC`) or can be set manually using the `--OUTPUT` parameter (see [Running the program](#running-the-program)).
 
 The program generates several files. They will be discussed in alphabetical order (the same way your system  usually sorts them).
 
