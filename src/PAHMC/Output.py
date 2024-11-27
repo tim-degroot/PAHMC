@@ -22,7 +22,8 @@ def Data_Output(
 ):
 
     file_name = outfilename.split(".")[0]
-    file_path = f"{file_name}__data.log"
+    file_path = f"{file_name}_data.csv"
+    file_exists = os.path.isfile(file_path)
 
     with open(file_path, "a") as data_file:
         headers = [
@@ -37,11 +38,9 @@ def Data_Output(
             "HD time",
             "DD time",
         ]
-        col_widths = [max(len(str(header)), 10) for header in headers]
-        header_line = "\t".join(
-            f"{header:<{col_widths[i]}}" for i, header in enumerate(headers)
-        )
-        data_file.write(header_line + "\n")
+
+        if not file_exists:
+            data_file.write(",".join(headers) + "\n")
 
         values = [
             f"MC{mc}",
@@ -56,15 +55,12 @@ def Data_Output(
             round(DD_time, 10),
         ]
 
-        value_line = "\t".join(
-            f"{str(value):<{col_widths[i]}}" for i, value in enumerate(values)
-        )
-        data_file.write(value_line + "\n")
+        data_file.write(",".join([str(value) for value in values]) + "\n")
 
 
 def Structure_Output(outfilename, E, iteration, molecule):
     file_name = outfilename.split(".")[0]
-    file_path = f"{file_name}__iteration_{iteration}_mol_structures.log"
+    file_path = f"{file_name}_iteration_{iteration}_mol_structures.log"
 
     with open(file_path, "a") as struct_file:
         struct_file.write(f"{str(molecule.edges)}\n{str(molecule.links)}\n\n")
@@ -72,7 +68,7 @@ def Structure_Output(outfilename, E, iteration, molecule):
 
 def End_Structures_Output(outfilename, E, edge, mc):
     file_name = outfilename.split(".")[0]
-    file_path = f"{file_name}__end_structures.out"
+    file_path = f"{file_name}_end_structures.out"
 
     with open(file_path, "a") as endstruct_file:
         endstruct_file.write(f"MC{mc}\t{edge}\n")
@@ -91,7 +87,7 @@ def STD_Output(
     # TODO: Currently hardcoded, needs to be incorporated better in future
     time_bin_size = 1e-06
     hops_bin_size = 50000
-    max_time = 0.001
+    max_time = 0.02
 
     logger.info("Writing output file...")
     outfile = open(outfilename, "w")
@@ -131,20 +127,16 @@ def STD_Output(
 
 def Hops_Output(outfilename, mc, key_hops, E):
     file_name = outfilename.split(".")[0]
-    file_path = f"{file_name}_key_hops.out"
+    file_path = f"{file_name}_key_hops.csv"
+    file_exists = os.path.isfile(file_path)
 
     with open(file_path, "a") as hops_file:
         sorted_keys = sorted(key_hops.keys())
         headers = ["MC#"] + sorted_keys
-        col_widths = [len(str(header)) for header in headers]
-        header_line = "\t".join(
-            f"{header:<{col_widths[i]}}" for i, header in enumerate(headers)
-        )
-        hops_file.write(header_line + "\n")
+
+        if not file_exists:
+            hops_file.write(",".join(headers) + "\n")
 
         sorted_keys = sorted(key_hops.keys())
         values = [f"MC{str(mc)}"] + [str(key_hops[key]) for key in sorted_keys]
-        value_line = "\t".join(
-            f"{value:<{col_widths[i]}}" for i, value in enumerate(values)
-        )
-        hops_file.write(value_line + "\n")
+        hops_file.write(",".join(values) + "\n")

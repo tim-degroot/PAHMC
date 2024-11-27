@@ -141,20 +141,20 @@ The filename of the output is taken from the yaml (`ABC.yaml` gives `filename = 
 
 The program generates several files. They will be discussed in alphabetical order (the same way your system  usually sorts them).
 
-`{filename}_data.log` contains the following:
+`{filename}_data.csv` contains the following:
 
 ```md
-MC#       	Diss atom 	Diss pos  	Diss time 	# hops    	# D hops  	# cross hops	HH time   	HD time   	DD time   
-MC0       	None      	None      	2.0004e-06	4556      	348       	21          	1.5672e-06	4.331e-07 	0         
+MC#       ,Diss atom ,Diss pos  ,Diss time ,# hops    ,# D hops  ,# cross hops,HH time   ,HD time   ,DD time   
+MC0       ,None      ,None      ,2.0061e-06,5248      ,353       ,18          ,1.6279e-06,3.782e-07 ,0         
 ```
 
 Where `MC#` is the iteration number; `Diss atom` is the type of atom that dissociated, either H(ydrogen) or D(euterium); `Diss pos` is the edge number where the dissociation occured; `Diss time` is the time the simulation ran before dissociation occured, if no dissociation happened but the simulation was ended because of the Maximum time this value is the time at that point; `# hops` is the total number of hops that happened in the simulation; `# D hops` is the number of hops of a deuterium atom; `# cross hops` is the number of hops across a cross-link; `HH/HD/DD time` is the time spent with a HH/HD/DD aliphatic site respectively.
 
-`{filename}_key_hops.out` contains the following:
+`{filename}_key_hops.csv` contains the following:
 
-```md
-MC#	D1to2	D1to9a	D2to1	D2to3	D9ato1	D9ato4a	D9ato9	D9to9a	H1to2	H1to9a	H2to1	H2to3	H9ato1	H9ato4a	H9ato9	H9to9a
-MC0	147  	1     	147  	4    	2     	0      	23    	24    	1757 	40    	1757 	142  	39    	21     	226   	226   
+```csv
+MC#    ,D1to2  ,D1to9a ,D2to1  ,D2to3  ,D9ato1 ,D9ato4a,D9ato9 ,D9to9a ,H1to2  ,H1to9a ,H2to1  ,H2to3  ,H9ato1 ,H9ato4a,H9ato9 ,H9to9a 
+MC0    ,89     ,2      ,88     ,4      ,3      ,2      ,20     ,21     ,1650   ,33     ,1651   ,131    ,32     ,19     ,217    ,217    
 ```
 
 Where the amount of occurences of every unique hop is stored. Symmetrical ones are summed under the label of the first in the list.
@@ -165,7 +165,7 @@ Where the amount of occurences of every unique hop is stored. Symmetrical ones a
 
 `{filename}.log` contains the programs logger.
 
-`{filename}.out`
+`{filename}.out` contains the main output. This includes the numbers of dissociation per atom (H(ydrogen), D(euterium) or None) and the numbers of dissociation per position of your molecule (numbered according to edge numbers).
 
 If `--debug` is enabled `{filename}_{iteration}_mol_structures.log` contains the complete structure history of the molecular structure of the first iteration (iteration 0) is stored.
 
