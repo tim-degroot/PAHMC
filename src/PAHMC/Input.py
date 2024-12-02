@@ -109,13 +109,13 @@ class Input_reader:
 
         self.init_links_numbers = tuple(self.mol_links_numbers)
 
+        self.cross_links = {}
         if data.get("Initial cross-links") is not None:
             cross_links = data.get("Initial cross-links").split()
             cross_links_tuples = [
                 tuple(map(str, item.strip("()").split(","))) for item in cross_links
             ]
 
-            self.cross_links = {}
             for a, b in cross_links_tuples:
                 self.cross_links[a] = b
                 self.cross_links[b] = a

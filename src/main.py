@@ -242,7 +242,6 @@ def _get_core_count() -> int:
         return mp.cpu_count()
 
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog="PAHMC",

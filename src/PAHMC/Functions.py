@@ -95,12 +95,21 @@ def Possible_reactions(molecule, specified_rates):
         elif j != 0 and j < len(molecule.link_numbers[i]) - 1:
             prev = molecule.link_numbers[i][j - 1]
             next = molecule.link_numbers[i][j + 1]
-        elif j == len(molecule.edge_numbers[i]) - 1:
+        elif j == len(molecule.link_numbers[i]) - 1:
             prev = molecule.link_numbers[i][j - 1]
             if i < len(molecule.edge_numbers) - 1:
                 next = molecule.edge_numbers[i + 1][0]
             else:
                 next = molecule.edge_numbers[0][0]
+        else:
+            prev = molecule.link_numbers[i][j - 1]
+            if j < len(molecule.link_numbers[i]) - 1:
+                next = molecule.link_numbers[i][j + 1]
+            else:
+                if i < len(molecule.edge_numbers) - 1:
+                    next = molecule.edge_numbers[i + 1][0]
+                else:
+                    next = molecule.edge_numbers[0][0]
 
     if current in molecule.cross_links.keys():
         cross = molecule.cross_links.get(current)
