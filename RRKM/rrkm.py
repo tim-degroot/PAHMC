@@ -49,8 +49,8 @@ parser.add_argument("-o", type=str, default="rrkm.txt", help="Output file")
 parser.add_argument("-r", type=str, help="Reverse output file")
 args = parser.parse_args()
 
-flq = args.q
-flp = args.p
+quiet_output = args.q
+plot_output = args.p
 flloose = args.l
 sf = args.f
 temp = args.t
@@ -82,7 +82,7 @@ for struct in structures:
     densfile = fh_densfile.name
 
     ### Read frequencies from Gaussian file
-    if not flq:
+    if not quiet_output:
         print(f"Getting frequencies from {struct}...")
     subprocess.call(["grep", "Frequencies", struct], stdout=fh_freqfile)
 
@@ -115,7 +115,7 @@ for struct in structures:
     ### Remove imaginary frequencies
     freqs = freqs[freqs > 0]
     af = freqs.size
-    if not flq:
+    if not quiet_output:
         print(f"Freqs. read: {ai}")
         print(f"Imaginary freqs.: {ai - af}")
 
@@ -134,7 +134,7 @@ for struct in structures:
     ### SET line2 for densum input file: filename for multiwell
     line2 = title
     ### SET line3 for densum input file
-    IWR = 1  # 0=Exact Count; 1=Whitten-Rabinovich
+    IWR = 1  # 0=Exact Count; 1=Whitten-Rabinovitch
     ### DoF, IWR, 'HAR'(harmonic)/'OBS'(fundamental), units ('AMUA')
     line3 = [af, IWR, "'HAR'", "'AMUA'"]
     ### SET line4 for densum input file
@@ -153,7 +153,7 @@ for struct in structures:
     ### Final empty line is required for densum
     print("", file=fh_densfile)
     fh_densfile.close()
-    if not flq:
+    if not quiet_output:
         print(" Densum file written.")
 
     ### Run densum
@@ -161,10 +161,10 @@ for struct in structures:
     fh_densfile.close()
 
     subprocess.call(["cp", densfile, os.path.join(tmpdir.name, "densum.dat")])
-    if not flq:
+    if not quiet_output:
         print(" Running densum...")
     subprocess.call(["densum", densfile], stdout=tempfile.TemporaryFile())
-    if not flq:
+    if not quiet_output:
         print(" Done.")
         print("")
 
@@ -173,36 +173,36 @@ for struct in structures:
     start_line = 65 + af
 
     en = []
-    dens = []
-    suma = []
+    density_of_states = []
+    sum_of_states = []
 
     for i, line in enumerate(fh):
         if i >= start_line - 1:
             data = line.split()
-            if not flq:
+            if not quiet_output:
                 print(data)
             en.append(float(data[1]))
 
             check = re.compile(r"E\+")
             if not check.search(data[2]):
                 data[2] = data[2].replace("+", "E+")
-            dens.append(float(data[2]))
+            density_of_states.append(float(data[2]))
             if not check.search(data[3]):
                 data[3] = data[3].replace("+", "E+")
-            suma.append(float(data[3]))
+            sum_of_states.append(float(data[3]))
 
-    sos.append(np.array(suma))
-    dos.append(np.array(dens))
+    sos.append(np.array(sum_of_states))
+    dos.append(np.array(density_of_states))
     energ = np.array(en)
 
     fh.close()
     os.chdir(cwd)
 
-if not flq:
-    if functionals[0] == functionals[1] and functionals[1] == functionals[2]:
+if functionals[0] == functionals[1] and functionals[1] == functionals[2]:
+    if not quiet_output:
         print("Functionals/basis set are the same for all structures.")
-    else:
-        print("WARNING: Functional/basis set are not the same")
+else:
+    print("WARNING: Functional/basis set are not the same")
 
 barrier = E0[2] - E0[0] - 13.6 if flloose else E0[1] - E0[0]
 # barrier = 3.18
@@ -234,14 +234,14 @@ print("{:>10s} {:>10s}".format("En (eV)", "k (s-1)"), file=fh_rrkmfile)
 for E, k in zip(energ / conv, rate):
     print("{:10.5g} {:10.5g}".format(E, k), file=fh_rrkmfile)
 
-if not flq:
+if not quiet_output:
     print("")
     print("RRKM file written.")
     print("sf={:.3f}; Delta={:.2f} eV".format(sf, delta))
     print("E0={:.2f} eV; S*={:.2f}".format(barrier, DS))
     print("Number of points: " + str(len(energ)))
 
-if flp:
+if plot_output:
     plt.plot(energ / conv, rate, label="Forward")
 
 fh_rrkmfile.close()
@@ -275,19 +275,19 @@ if outfile_rev:
     for E, k in zip(energ / conv, rate):
         print("{:10.5g} {:10.5g}".format(E, k), file=fh_rrkmfile_rev)
 
-    if not flq:
+    if not quiet_output:
         print("")
         print("RRKM (rev.) file written.")
         print("sf={:.3f}; Delta={:.2f} eV".format(sf, delta))
         print("E0={:.2f} eV; S*={:.2f} J/K/mol".format(barrier, DS))
         print("Number of points: " + str(len(energ)))
 
-    if flp:
+    if plot_output:
         plt.plot(energ / conv, rate, label="Reverse")
 
     fh_rrkmfile_rev.close()
 
-if flp:
+if plot_output:
     plt.yscale("log")
 
     plt.xlabel(r"$E_\mathrm{int}$ (eV)")
