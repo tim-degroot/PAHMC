@@ -64,4 +64,4 @@ $$ k(E) = \frac{N^\ddagger(E - E_0)}{h\rho(E)} $$
 
 5. The activation energy at T = 1000 K for each reaction is calculated with:
 
-$$ \Delta S = k \ln[\frac{\prod\Phi_i^*}{\prod\Phi_i}]+(\frac{E^*-E}{T})$$
+$$ \Delta S = k \ln[\frac{\prod\Phi_i^*}{\prod\Phi_i}]+(\frac{E^*-E}{T}) $$
