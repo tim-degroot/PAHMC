@@ -179,8 +179,6 @@ for struct in structures:
     for i, line in enumerate(fh):
         if i >= start_line - 1:
             data = line.split()
-            if not quiet_output:
-                print(data)
             en.append(float(data[1]))
 
             check = re.compile(r"E\+")
@@ -204,11 +202,11 @@ if functionals[0] == functionals[1] and functionals[1] == functionals[2]:
 else:
     print("WARNING: Functional/basis set are not the same")
 
-barrier = E0[2] - E0[0] - 13.6 if flloose else E0[1] - E0[0]
-# barrier = 3.18
+H_energy = -13.6
+
+barrier = (E0[2] + H_energy) - E0[0] if flloose else E0[1] - E0[0]
 barrier *= conv
-delta = E0[2] - E0[0] - 13.6 if flloose else E0[2] - E0[0]
-# delta = 2.36
+delta = barrier if flloose else E0[2] - E0[0]
 
 DS = Stemp[1] - Stemp[0]
 
@@ -247,9 +245,9 @@ if plot_output:
 fh_rrkmfile.close()
 
 if outfile_rev:
-    barrier -= delta  # E0[0]-E0[2]-13.6 if flloose else E0[1]-E0[2]
+    barrier -= delta
     barrier *= conv
-    delta = -delta  # E0[0]-E0[2]-13.6 if flloose else E0[0]-E0[2]
+    delta = -delta
 
     DS = Stemp[1] - Stemp[2]
 
