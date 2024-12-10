@@ -1,0 +1,585 @@
+import os
+import pandas as pd
+import matplotlib.pyplot as plt
+import ast
+import re
+import numpy as np
+
+figsize: set = (5, 4)
+dpi: int = 150
+
+
+class Settings:
+    def __init__(self, figsize=(5, 4), dpi=150):
+        self.figsize = figsize
+        self.dpi = dpi
+
+
+class RRKM(Settings):
+    def __init__(self, folder: str):
+        self.folder = folder
+
+        super().__init__(figsize, dpi)
+        self.rates = {"D_hop": [], "H_hop": [], "D_diss": [], "H_diss": []}
+        self.pairs = {"Hops": [], "Dissociations": []}
+
+        for file in os.listdir(folder):
+            if file.startswith("D"):
+                D_file, H_file = file, f"H{file[1:]}"
+                if os.path.exists(os.path.join(folder, H_file)):
+                    if "to" in file:
+                        self.pairs["Hops"].append([D_file, H_file])
+                    elif "diss" in file:
+                        self.pairs["Dissociations"].append([D_file, H_file])
+                if "to" in file:
+                    self.rates["D_hop"].append(file)
+                elif "diss" in file:
+                    self.rates["D_diss"].append(file)
+            elif file.startswith("H"):
+                if "to" in file:
+                    self.rates["H_hop"].append(file)
+                elif "diss" in file:
+                    self.rates["H_diss"].append(file)
+
+    def plot(
+        self,
+        subset: str,
+        filter_function=None,
+        title: str = "",
+        ylim: list = [10e-20, 10e13],
+        xlim: list = [0.0, 5.2],
+    ):
+        """
+        Generate a plot for a specified subset of data files.
+
+        Parameters:
+        subset (str): The key to identify the subset of data files to plot.
+        filter_function (callable, optional): A function to filter the filenames in the subset. Defaults to None.
+        title (str, optional): The title of the plot. Defaults to an empty string.
+        ylim (list, optional): A list specifying the y-axis limits. Defaults to an empty list.
+        xlim (list, optional): A list specifying the x-axis limits. Defaults to [0.0, 5.2].
+
+        Example Usage:
+        analysis.plot(subset="H_diss", filter_function=lambda x: 'a' not in x, title="Hydrogen Dissociation", ylim=[0, 1e5], xlim=[0.0, 5.2])
+        """
+
+        plt.figure(figsize=self.figsize, dpi=self.dpi)
+
+        subset = self.rates.get(subset)
+
+        if filter_function is not None:
+            subset = list(filter(filter_function, subset))
+
+        colors = self._get_colormap(subset)
+
+        for i, filename in enumerate(subset):
+            filepath = os.path.join(self.folder, filename)
+            data = np.loadtxt(filepath, skiprows=2)
+            label = self._parse_label(filename)
+
+            color, line_style = self._get_color_and_style(filename, colors, i)
+            plt.plot(
+                data[:, 0], data[:, 1], label=label, color=color, linestyle=line_style
+            )
+
+        if len(ylim) > 0:
+            plt.ylim(ylim)
+
+        if len(xlim) > 0:
+            plt.xlim(xlim)
+            plt.xticks(np.arange(xlim[0], xlim[1] + 0.4, 0.4))
+
+        plt.title(title)
+        self._plot_plot()
+
+    def plot_pairs(
+        self, subset: str, title: str = "", ylim: list = [], xlim: list = [0.0, 5.2]
+    ):
+        """
+        Generate plots for pairs of data files.
+
+        Parameters:
+        subset (str): The key to identify the subset of pairs of data files to plot.
+        title (str, optional): The title of the plot. Defaults to an empty string.
+        ylim (list, optional): A list specifying the y-axis limits. Defaults to an empty list.
+        xlim (list, optional): A list specifying the x-axis limits. Defaults to [0.0, 5.2].
+
+        Example Usage:
+        analysis.plot_pairs(subset="H_pairs", title="Hydrogen Pairs", ylim=[0, 1e5], xlim=[0.0, 5.2])
+        """
+
+        subset = self.pairs.get(subset)
+
+        for pair in subset:
+            plt.figure(figsize=self.figsize, dpi=self.dpi)
+            for i, filename in enumerate(pair):
+                filepath = os.path.join(self.folder, filename)
+                data = np.loadtxt(filepath, skiprows=2)
+                label = (
+                    f"{"H" if "H" in filename else "D"} {self._parse_label(filename)}"
+                )
+
+                color = "dimgray" if "H" in filename else "darkgray"
+
+                plt.plot(data[:, 0], data[:, 1], label=label, color=color)
+
+            if len(ylim) > 0:
+                plt.ylim(ylim)
+
+            if len(xlim) > 0:
+                plt.xlim(xlim)
+                plt.xticks(np.arange(xlim[0], xlim[1] + 0.4, 0.4))
+
+            plt.title(title)
+            self._plot_plot()
+
+    def _plot_plot(self):
+        plt.xticks
+        plt.yscale("log")
+        plt.xlabel("Energy (eV)")
+        plt.ylabel("Reaction rate (s$^{-1}$)")
+        plt.legend(loc="best")
+        plt.show()
+        plt.clf()
+
+    def _get_colormap(self, subset):
+        colors = {}
+        color_cycle = plt.cm.Greys(np.linspace(0.3, 1.0, len(subset)))
+        color_cycle = plt.cm.tab10.colors
+        for filename in subset:
+            pair = self._extract_pair(filename)
+            if pair not in colors:
+                colors[pair] = color_cycle[len(colors) % len(color_cycle)]
+        return colors
+
+    def _get_color_and_style(self, filename, colors, index):
+        pair = self._extract_pair(filename)
+        color = colors.get(pair, "black")
+        if "diss" in filename or len(pair) == 1:
+            line_style = "-"
+        else:
+            numbers = [x for x in self._parse_label(filename).split(" to ")]
+            line_style = "-" if numbers[0] < numbers[1] else "--"
+        return color, line_style
+
+    def _extract_pair(self, filename):
+        base_name = os.path.splitext(filename)[0]
+        pair = base_name[1:]
+        return tuple(sorted(pair.split("to")))
+
+    def _parse_label(self, label):
+        base_name = os.path.splitext(label)[0]
+        if "to" in base_name:
+            parts = base_name.split("to")
+            return f"{parts[0][1:]} to {parts[1]}"
+        elif "diss" in base_name:
+            parts = base_name.split("diss")
+            return f"{parts[0][1:]}"
+        return label
+
+
+class MonteCarlo(Settings):
+    def __init__(
+        self,
+        folder: str,
+        simulations: list,
+        numbering: list,
+        name: str,
+        perdeuterated: bool = False,
+    ):
+        super().__init__(figsize, dpi)
+        file_types = {
+            "data": "_data.csv",
+            "hops": "_key_hops.csv",
+            "log": ".log",
+            "output": ".out",
+            "end_structures": "_end_structures.out",
+        }
+        self.files = {
+            label: [os.path.join(folder, sim + file_type) for sim in simulations]
+            for label, file_type in file_types.items()
+        }
+        self.perdeuterated = perdeuterated
+        self.name = name
+        self.numbering = self.process_numbering(numbering)
+        self.data = self.process_data()
+        self.dissociation_counts, self.dissociation_positions = self.process_output()
+        self.hops = self.process_hops()
+        self.end_structures = self.process_endstruct()
+
+    def process_data(self):
+        data_frames = []
+
+        for file in self.files["data"]:
+            df = pd.read_csv(file, na_values=["None"])
+            df.columns = df.columns.str.strip()
+            df.set_index(df.columns[0], inplace=True)
+            df.loc[df["Diss pos"].isna(), "Diss time"] = np.nan
+            df["# H hops"] = df["# hops"] - df["# D hops"]
+            # df.dropna(subset=['Diss pos'], inplace=True) # TODO: Discuss wheter this data needs to be used or not
+            data_frames.append(df)
+
+        return pd.concat(data_frames)
+
+    def process_output(self):
+        dissociation_counts = []
+        dissociation_positions = []
+
+        for file in self.files["output"]:
+            with open(file, "r") as f:
+                lines = f.readlines()
+                for i, line in enumerate(lines):
+                    if line.startswith("Dissociations for Energy"):
+                        counts = lines[i + 1].strip().split(", ")
+                        counts_dict = {}
+                        for item in counts:
+                            parts = item.split(": ")
+                            if len(parts) == 2:
+                                k, v = parts
+                                counts_dict[k] = int(v)
+                        dissociation_counts.append(counts_dict)
+                    elif line.startswith("Dissociation positions for Energy"):
+                        positions_dict = {}
+                        for pos_line in lines[i + 1 : i + 11]:
+                            parts = pos_line.strip().split(": ")
+                            if len(parts) == 2:
+                                k, v = parts
+                                positions_dict[int(k)] = int(v)
+                        dissociation_positions.append(positions_dict)
+
+        return pd.DataFrame(dissociation_counts), pd.DataFrame(dissociation_positions)
+
+    def process_hops(self):
+        data_frames = []
+
+        for file in self.files["hops"]:
+            df = pd.read_csv(file)
+            df.set_index(df.columns[0], inplace=True)
+            data_frames.append(df)
+
+        return pd.concat(data_frames)
+
+    def process_endstruct(self):
+        data_frames = []
+
+        for file in self.files["end_structures"]:
+            df = pd.read_csv(file, sep="\t", header=None, names=["ID", "Structures"])
+            df.set_index("ID", inplace=True)
+            df["Structures"] = df["Structures"].apply(ast.literal_eval)
+            df["End position"] = None
+            atom = "D" if not self.perdeuterated else "H"
+
+            df["End position"] = df["Structures"].apply(
+                lambda structures: self.find_end_position(structures, atom)
+            )
+
+            data_frames.append(df)
+
+        df = pd.concat(data_frames)
+        df.replace(-1, pd.NA, inplace=True)
+        df.dropna(subset=["End position"], inplace=True)
+
+        return df
+
+    def find_end_position(self, structures: list, atom: str):
+        for struct_list, num_list in zip(structures, self.numbering):
+            for i, s in enumerate(struct_list):
+                if s == atom:
+                    return num_list[i]
+        return -1
+
+    def process_numbering(self, numbering: list):
+        groups = re.findall(r"\((.*?)\)", numbering)
+        return [list(map(int, group.split(","))) for group in groups]
+
+    def all_plots(self, regex: str):
+        self.bar_hops(regex)
+        self.histogram_hops()
+        self.histogram_hops_comparison()
+        self.histogram_time()
+        self.histogram_time_comparison()
+        self.histogram_time_percentage()
+
+    def bar_hops(self, regex: str):
+        df = self.hops.filter(regex=regex)
+        df = df.div(df.sum(axis=1), axis=0) * 100
+
+        plt.figure(figsize=self.figsize, dpi=self.dpi)
+        df.mean().plot(kind="bar", color="dimgray", yerr=df.std(), capsize=4)
+        plt.ylabel("Occurences [%]")
+        plt.xlabel("Hop (summed over symmetries)")
+        plt.xticks(rotation=60)
+        plt.show()
+
+    def histogram_time(self):
+        data = self.data.dropna(subset=["Diss pos"])
+        data = data["Diss time"] * 1000
+        plt.figure(figsize=self.figsize, dpi=self.dpi)
+        plt.hist(data, bins=128, color="dimgray")
+        plt.xlabel("Dissociation time [ms]")
+        plt.ylabel("Occurences")
+        plt.show()
+
+    def histogram_hops(self):
+        data = self.data.dropna(subset=["Diss pos"])
+        plt.figure(figsize=self.figsize, dpi=self.dpi)
+        plt.hist(data["# hops"], bins=128, color="dimgray")
+        plt.xlabel("Total number of scrambling hops")
+        plt.ylabel("Occurences")
+        plt.show()
+
+    def histogram_hops_comparison(self):
+        data = self.data.dropna(subset=["Diss pos"])
+
+        fig = plt.figure(figsize=self.figsize, dpi=self.dpi)
+        gs = fig.add_gridspec(2, hspace=0)
+        axs = gs.subplots(sharex=True, sharey=True)
+
+        axs[0].hist(data["# D hops"], bins=128, label="D hops", color="dimgray")
+        axs[1].hist(data["# H hops"], bins=128, label="H hops", color="darkgray")
+
+        fig.supxlabel("Number of scrambling hops")
+
+        fig.supylabel("Occurences")
+
+        for ax in axs:
+            ax.label_outer()
+
+        axs[0].legend()
+        axs[1].legend()
+        plt.show()
+
+    def histogram_time_percentage(self):
+        if not self.perdeuterated:
+            hh_time = (self.data["HH time"] / self.data["Diss time"]).dropna() * 100
+            hd_time = (self.data["HD time"] / self.data["Diss time"]).dropna() * 100
+        else:
+            hd_time = (self.data["HD time"] / self.data["Diss time"]).dropna() * 100
+            dd_time = (self.data["DD time"] / self.data["Diss time"]).dropna() * 100
+
+        fig, (ax1, ax2) = plt.subplots(
+            1, 2, sharey=True, figsize=self.figsize, dpi=self.dpi
+        )
+        fig.subplots_adjust(hspace=0)
+
+        if not self.perdeuterated:
+            ax1.hist(hd_time, bins=128, label="HD", color="dimgray")
+            ax2.hist(hh_time, bins=128, label="HH", color="darkgray")
+        else:
+            ax1.hist(hd_time, bins=128, label="HD", color="dimgray")
+            ax2.hist(dd_time, bins=128, label="DD", color="darkgray")
+
+        ax1.set_xlim(5, 15)
+        ax2.set_xlim(85, 95)
+
+        ax1.spines["right"].set_visible(False)
+        ax2.spines["left"].set_visible(False)
+        ax2.tick_params(labelleft=False)
+        ax2.yaxis.tick_right()
+
+        fig.supxlabel("Percentage time spent [%]")
+        fig.supylabel("Occurrences")
+
+        d = 0.02
+        kwargs = dict(transform=ax1.transAxes, color="k", clip_on=False)
+
+        ax1.plot((1 - d, 1 + d), (-d, +d), **kwargs)
+        ax1.plot((1 - d, 1 + d), (1 - d, 1 + d), **kwargs)
+
+        kwargs.update(transform=ax2.transAxes)
+        ax2.plot((-d, +d), (1 - d, 1 + d), **kwargs)
+        ax2.plot((-d, +d), (-d, +d), **kwargs)
+
+        fig.legend(loc="upper right")
+        plt.show()
+
+    def histogram_time_comparison(self):
+        data = self.data.dropna(subset=["Diss pos"])
+        if not self.perdeuterated:
+            hh_time = data["HH time"].dropna() * 1000
+            hd_time = data["HD time"].dropna() * 1000
+        else:
+            hd_time = data["HD time"].dropna() * 1000
+            dd_time = data["DD time"].dropna() * 1000
+
+        fig = plt.figure(figsize=self.figsize, dpi=self.dpi)
+        gs = fig.add_gridspec(2, hspace=0)
+        axs = gs.subplots(sharex=True, sharey=True)
+
+        if not self.perdeuterated:
+            axs[0].hist(hh_time, bins=128, label="HH time", color="dimgray")
+            axs[1].hist(hd_time, bins=128, label="HD time", color="darkgray")
+        else:
+            axs[0].hist(hd_time, bins=128, label="HD time", color="dimgray")
+            axs[1].hist(dd_time, bins=128, label="DD time", color="darkgray")
+
+        fig.supxlabel("Time [ms]")
+        fig.supylabel("Occurrences")
+
+        for ax in axs:
+            ax.label_outer()
+
+        axs[0].legend()
+        axs[1].legend()
+        plt.show()
+
+    def mass_spectra(self, parent_ion):
+        # parent_ion = 178 + 2
+        lost_hydrogen = parent_ion - 1
+        lost_deuterium = parent_ion - 2
+
+        # h_percentage = (self.data["Diss atom"] == "H").sum() / len(self.data) * 100
+        # d_percentage = (self.data["Diss atom"] == "D").sum() / len(self.data) * 100
+
+        # atoms = [parent_ion-2, parent_ion-1]
+        # percentages = [d_percentage, h_percentage]
+
+        # plt.figure(figsize=self.figsize, dpi=self.dpi)
+        # plt.stem(atoms, percentages, basefmt=" ", markerfmt='', linefmt="black")
+        # plt.stem(parent_ion, 100, basefmt=" ", markerfmt="", linefmt="dimgray")
+
+        # plt.xlabel('m/z (amu/e)')
+        # plt.ylabel('Intensity (%)')
+        # plt.xlim(min(atoms)-2, max(atoms)+2)
+        # plt.ylim(0, 100)
+
+        # plt.tight_layout()
+        # plt.show()
+
+        if not self.perdeuterated:
+            no_diss = (self.data["Diss atom"].isna()).sum() / len(self.data) * 100
+            h_diss = (self.data["Diss atom"] == "H").sum() / len(self.data) * 100
+            d_diss = (self.data["Diss atom"] == "D").sum() / len(self.data) * 100
+            hh_percentage = (
+                self.data["HH time"] / self.data["Diss time"]
+            ).dropna().mean() * 100
+            hd_percentage = (
+                self.data["HD time"] / self.data["Diss time"]
+            ).dropna().mean() * 100
+        else:
+            hd_percentage = (
+                self.data["HD time"] / self.data["Diss time"]
+            ).dropna().mean() * 100
+            dd_percentage = (
+                self.data["DD time"] / self.data["Diss time"]
+            ).dropna().mean() * 100
+
+        masses = [parent_ion, lost_hydrogen, lost_deuterium]
+
+        plt.figure(figsize=self.figsize, dpi=self.dpi)
+        if not self.perdeuterated:
+            plt.stem(
+                masses,
+                [no_diss, h_diss, d_diss],
+                basefmt=" ",
+                markerfmt="",
+                linefmt="black",
+            )
+            # plt.stem(masses, [100, hh_percentage, hd_percentage], color=['lightgray', 'dimgray', 'darkgray'], width=0.01)
+        else:
+            plt.stem(
+                masses,
+                [100, hh_percentage, hd_percentage],
+                basefmt=" ",
+                markerfmt="",
+                linefmt="black",
+            )
+
+        plt.stem(parent_ion + 0.1, 100, basefmt=" ", markerfmt="", linefmt="dimgray")
+        plt.xlabel("m/z (amu/e)")
+        plt.ylabel("Intensity [%]")
+        plt.xlim(min(masses) - 2, max(masses) + 2)
+        plt.ylim(0, 105)
+        plt.show()
+
+    def data_tables(self):
+        data = self.dissociation_counts.mean()
+        print(
+            f"% dissociated in 20 ms = {(data["H"].sum() + data["D"].sum())/data.sum()*100:.2f}%"
+        )
+        data = self.data.dropna(subset=["Diss pos"])
+        print(f"Median dissociation time = {data["Diss time"].median()*1000:.1f} ms")
+        print(f"Median Scrambling hops = {self.data["# hops"].median()/1e6:.1f}M\n")
+
+        h_median = self.data["# H hops"].median()
+        d_median = self.data["# D hops"].median()
+        percentile_diff = (h_median - d_median) / d_median * 100
+
+        print(f"Median H scrambling hops = {h_median/1e3:.0f}K")
+        print(f"Median D scrambling hops = {d_median/1e3:.0f}K")
+        print(f"Percentile difference = {percentile_diff:.2f}%\n")
+
+        HH_or_DD_time = (
+            self.data["DD time"].median() * 1000
+            if self.perdeuterated
+            else self.data["HH time"].median() * 1000
+        )
+        HD_time = self.data["HD time"].median() * 1000
+        percentile_diff = (HH_or_DD_time - HD_time) / HD_time * 100
+
+        print(f"Median HH or DD time = {HH_or_DD_time:.2f} ms")
+        print(f"Median HD time = {HD_time:.2f} ms")
+        print(f"Percentile difference = {percentile_diff:.0f}%\n")
+
+        if not self.perdeuterated:
+            hh_mean = (self.data["HH time"] / self.data["Diss time"]).mean() * 100
+            print(f"HH mean relative time: {hh_mean:.1f}%")
+        else:
+            dd_mean = (self.data["DD time"] / self.data["Diss time"]).mean() * 100
+            print(f"DD mean relative time: {dd_mean:.1f}%")
+
+        hd_mean = (self.data["HD time"] / self.data["Diss time"]).mean() * 100
+        print(f"HD mean relative time: {hd_mean:.1f}%")
+
+
+class DissociationAnalysis(Settings):
+    def __init__(self, alpha, beta):
+        super().__init__(figsize, dpi)
+        self.alpha, self.beta = alpha, beta
+
+    def histogram(self, symmetries):
+
+        alpha_positions = self.average_symmetries(
+            self.alpha.dissociation_positions, symmetries
+        )
+        beta_positions = self.average_symmetries(
+            self.beta.dissociation_positions, symmetries
+        )
+
+        bar_width = 0.4  # Width of the bars
+        index = np.arange(len(alpha_positions.mean().index))  # The label locations
+
+        plt.figure(figsize=self.figsize, dpi=self.dpi)
+        plt.bar(
+            index - bar_width / 2,
+            alpha_positions.mean().values,
+            bar_width,
+            yerr=alpha_positions.std().values,
+            label=self.alpha.name,
+            capsize=5,
+            color="dimgray",
+        )
+        plt.bar(
+            index + bar_width / 2,
+            beta_positions.mean().values,
+            bar_width,
+            yerr=beta_positions.std().values,
+            label=self.beta.name,
+            capsize=5,
+            color="darkgray",
+        )
+
+        plt.xlabel("Dissociation position")
+        plt.ylabel("Occurrence (averaged over symmetric places)")
+        plt.xticks(index, alpha_positions.mean().index)
+        plt.legend()
+        plt.show()
+
+
+    def average_symmetries(df, symmetries):
+        averaged_df = df.copy()
+        for key, value in symmetries.items():
+            if key in df.columns and value in df.columns:
+                averaged_df[key] = (df[key] + df[value]) / 2
+                averaged_df.drop(columns=[value], inplace=True)
+        return averaged_df
