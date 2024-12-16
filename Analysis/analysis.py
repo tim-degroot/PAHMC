@@ -77,7 +77,7 @@ class RRKM(Settings):
             data = np.loadtxt(filepath, skiprows=2)
             label = self._parse_label(filename)
 
-            color, line_style = self._get_color_and_style(filename, colors, i)
+            color, line_style = self._get_color_and_style(filename, colors)
             plt.plot(
                 data[:, 0], data[:, 1], label=label, color=color, linestyle=line_style
             )
@@ -133,12 +133,25 @@ class RRKM(Settings):
             plt.title(title)
             self._plot_plot()
 
-    def _plot_plot(self):
+    def _plot_plot(self, sort_legend_by="pairs"):
+        """
+        Finalize the plot with labels, scales, and legend.
+
+        Parameters:
+        sort_legend_by (str): Criteria to sort the legend. Options are "alphabetical" or "pairs".
+        """
         plt.xticks
         plt.yscale("log")
         plt.xlabel("Energy (eV)")
         plt.ylabel("Reaction rate (s$^{-1}$)")
-        plt.legend(loc="best")
+
+        handles, labels = plt.gca().get_legend_handles_labels()
+        if sort_legend_by == "alphabetical":
+            labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
+        elif sort_legend_by == "pairs":
+            labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: self._extract_pair(t[0])))
+
+        plt.legend(handles, labels, loc="lower right")
         plt.show()
         plt.clf()
 
@@ -146,35 +159,42 @@ class RRKM(Settings):
         colors = {}
         color_cycle = plt.cm.Greys(np.linspace(0.3, 1.0, len(subset)))
         color_cycle = plt.cm.tab10.colors
+        unique_numbers = sorted(set(int(num) for filename in subset for num in self._extract_pair(filename) if num.isdigit()))
+
         for filename in subset:
             pair = self._extract_pair(filename)
-            if pair not in colors:
+            if "diss" in filename:
+                number = int(pair[0]) if len(pair) == 1 else int(pair[1])
+                index = unique_numbers.index(number)
+                colors[pair] = color_cycle[index % len(color_cycle)]
+            elif pair not in colors:
                 colors[pair] = color_cycle[len(colors) % len(color_cycle)]
         return colors
 
-    def _get_color_and_style(self, filename, colors, index):
+    def _get_color_and_style(self, filename, colors):
         pair = self._extract_pair(filename)
         color = colors.get(pair, "black")
         if "diss" in filename or len(pair) == 1:
             line_style = "-"
         else:
-            numbers = [x for x in self._parse_label(filename).split(" to ")]
-            line_style = "-" if numbers[0] < numbers[1] else "--"
+            numbers = [x for x in self._parse_label(filename)[2:].split(" to ")]
+            line_style = "-" if numbers[0] > numbers[1] else "--"
         return color, line_style
 
     def _extract_pair(self, filename):
         base_name = os.path.splitext(filename)[0]
         pair = base_name[1:]
+        pair = pair.replace("diss", "")  # Remove "diss" if present
         return tuple(sorted(pair.split("to")))
 
     def _parse_label(self, label):
         base_name = os.path.splitext(label)[0]
         if "to" in base_name:
             parts = base_name.split("to")
-            return f"{parts[0][1:]} to {parts[1]}"
+            return f"{base_name[0]} {parts[0][1:]} to {parts[1]}"
         elif "diss" in base_name:
             parts = base_name.split("diss")
-            return f"{parts[0][1:]}"
+            return f"{base_name[0]} {parts[0][1:]}"
         return label
 
 
@@ -204,7 +224,10 @@ class MonteCarlo(Settings):
         self.numbering = self.process_numbering(numbering)
         self.data = self.process_data()
         self.dissociation_counts, self.dissociation_positions = self.process_output()
-        self.hops = self.process_hops()
+        try:
+            self.hops = self.process_hops()
+        except FileNotFoundError:
+            pass
         self.end_structures = self.process_endstruct()
 
     def process_data(self):
@@ -216,6 +239,12 @@ class MonteCarlo(Settings):
             df.set_index(df.columns[0], inplace=True)
             df.loc[df["Diss pos"].isna(), "Diss time"] = np.nan
             df["# H hops"] = df["# hops"] - df["# D hops"]
+            if not self.perdeuterated:
+                df["# H hops"] /= 10
+                df["HH time"] /= 10
+            else:
+                df["# D hops"] /= 10
+                df["DD time"] /= 10
             # df.dropna(subset=['Diss pos'], inplace=True) # TODO: Discuss wheter this data needs to be used or not
             data_frames.append(df)
 
@@ -265,7 +294,7 @@ class MonteCarlo(Settings):
         for file in self.files["end_structures"]:
             df = pd.read_csv(file, sep="\t", header=None, names=["ID", "Structures"])
             df.set_index("ID", inplace=True)
-            df["Structures"] = df["Structures"].apply(ast.literal_eval)
+            df["Structures"] = df["Structures"].apply(self.safe_literal_eval)
             df["End position"] = None
             atom = "D" if not self.perdeuterated else "H"
 
@@ -281,6 +310,12 @@ class MonteCarlo(Settings):
 
         return df
 
+    def safe_literal_eval(self, value):
+        try:
+            return ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            return value.split(",")
+
     def find_end_position(self, structures: list, atom: str):
         for struct_list, num_list in zip(structures, self.numbering):
             for i, s in enumerate(struct_list):
@@ -289,11 +324,15 @@ class MonteCarlo(Settings):
         return -1
 
     def process_numbering(self, numbering: list):
-        groups = re.findall(r"\((.*?)\)", numbering)
-        return [list(map(int, group.split(","))) for group in groups]
+        if "(" in numbering:
+            groups = re.findall(r"\((.*?)\)", numbering)
+            return [list(map(int, group.split(","))) for group in groups]
+        else:
+            return [list(map(int, group.split(","))) for group in numbering.split(";")]
 
-    def all_plots(self, regex: str):
-        self.bar_hops(regex)
+    def all_plots(self):
+        self.bar_hops("^D")
+        self.bar_hops("^H")
         self.histogram_hops()
         self.histogram_hops_comparison()
         self.histogram_time()
@@ -351,11 +390,11 @@ class MonteCarlo(Settings):
 
     def histogram_time_percentage(self):
         if not self.perdeuterated:
-            hh_time = (self.data["HH time"] / self.data["Diss time"]).dropna() * 100
+            hh_time = (self.data["HH time"] * 10 / self.data["Diss time"]).dropna() * 100
             hd_time = (self.data["HD time"] / self.data["Diss time"]).dropna() * 100
         else:
             hd_time = (self.data["HD time"] / self.data["Diss time"]).dropna() * 100
-            dd_time = (self.data["DD time"] / self.data["Diss time"]).dropna() * 100
+            dd_time = (self.data["DD time"] * 10 / self.data["Diss time"]).dropna() * 100
 
         fig, (ax1, ax2) = plt.subplots(
             1, 2, sharey=True, figsize=self.figsize, dpi=self.dpi
@@ -423,46 +462,25 @@ class MonteCarlo(Settings):
         axs[1].legend()
         plt.show()
 
+    def histogram_dissociation_positions(self):
+        mean_positions = self.dissociation_positions.mean()
+        std_positions = self.dissociation_positions.std()
+
+        plt.figure(figsize=self.figsize, dpi=self.dpi)
+        plt.bar(mean_positions.index, mean_positions.values, yerr=std_positions.values, capsize=5, color="dimgray")
+        plt.xlabel("Dissociation position")
+        plt.ylabel("Occurrence")
+        plt.xticks(np.arange(min(mean_positions.index), max(mean_positions.index) + 1, 1))
+        plt.show()
+
     def mass_spectra(self, parent_ion):
-        # parent_ion = 178 + 2
         lost_hydrogen = parent_ion - 1
         lost_deuterium = parent_ion - 2
 
-        # h_percentage = (self.data["Diss atom"] == "H").sum() / len(self.data) * 100
-        # d_percentage = (self.data["Diss atom"] == "D").sum() / len(self.data) * 100
+        no_diss = (self.data["Diss atom"].isna()).sum() / len(self.data) * 100
+        h_diss = (self.data["Diss atom"] == "H").sum() / len(self.data) * 100
+        d_diss = (self.data["Diss atom"] == "D").sum() / len(self.data) * 100
 
-        # atoms = [parent_ion-2, parent_ion-1]
-        # percentages = [d_percentage, h_percentage]
-
-        # plt.figure(figsize=self.figsize, dpi=self.dpi)
-        # plt.stem(atoms, percentages, basefmt=" ", markerfmt='', linefmt="black")
-        # plt.stem(parent_ion, 100, basefmt=" ", markerfmt="", linefmt="dimgray")
-
-        # plt.xlabel('m/z (amu/e)')
-        # plt.ylabel('Intensity (%)')
-        # plt.xlim(min(atoms)-2, max(atoms)+2)
-        # plt.ylim(0, 100)
-
-        # plt.tight_layout()
-        # plt.show()
-
-        if not self.perdeuterated:
-            no_diss = (self.data["Diss atom"].isna()).sum() / len(self.data) * 100
-            h_diss = (self.data["Diss atom"] == "H").sum() / len(self.data) * 100
-            d_diss = (self.data["Diss atom"] == "D").sum() / len(self.data) * 100
-            hh_percentage = (
-                self.data["HH time"] / self.data["Diss time"]
-            ).dropna().mean() * 100
-            hd_percentage = (
-                self.data["HD time"] / self.data["Diss time"]
-            ).dropna().mean() * 100
-        else:
-            hd_percentage = (
-                self.data["HD time"] / self.data["Diss time"]
-            ).dropna().mean() * 100
-            dd_percentage = (
-                self.data["DD time"] / self.data["Diss time"]
-            ).dropna().mean() * 100
 
         masses = [parent_ion, lost_hydrogen, lost_deuterium]
 
@@ -479,7 +497,7 @@ class MonteCarlo(Settings):
         else:
             plt.stem(
                 masses,
-                [100, hh_percentage, hd_percentage],
+                [no_diss, h_diss, d_diss],
                 basefmt=" ",
                 markerfmt="",
                 linefmt="black",
@@ -493,12 +511,15 @@ class MonteCarlo(Settings):
         plt.show()
 
     def data_tables(self):
+        print(f"Data analysis for {self.name}")
         data = self.dissociation_counts.mean()
         print(
             f"% dissociated in 20 ms = {(data["H"].sum() + data["D"].sum())/data.sum()*100:.2f}%"
         )
+        print(f"H/D loss ratio = {data["H"].sum()/data.sum()*100:.2f}%/{data["D"].sum()/data.sum()*100:.2f}%")
         data = self.data.dropna(subset=["Diss pos"])
-        print(f"Median dissociation time = {data["Diss time"].median()*1000:.1f} ms")
+
+        print(f"Median dissociation time = {data["Diss time"].median()*1e6:.1f} μs")
         print(f"Median Scrambling hops = {self.data["# hops"].median()/1e6:.1f}M\n")
 
         h_median = self.data["# H hops"].median()
@@ -510,26 +531,28 @@ class MonteCarlo(Settings):
         print(f"Percentile difference = {percentile_diff:.2f}%\n")
 
         HH_or_DD_time = (
-            self.data["DD time"].median() * 1000
+            self.data["DD time"].median() * 1e6
             if self.perdeuterated
-            else self.data["HH time"].median() * 1000
+            else self.data["HH time"].median() * 1e6
         )
-        HD_time = self.data["HD time"].median() * 1000
+        HD_time = self.data["HD time"].median() * 1e6
         percentile_diff = (HH_or_DD_time - HD_time) / HD_time * 100
 
-        print(f"Median HH or DD time = {HH_or_DD_time:.2f} ms")
-        print(f"Median HD time = {HD_time:.2f} ms")
+        print(f"Median {"DD" if self.perdeuterated else "HH"} time = {HH_or_DD_time:.2f} μs")
+        print(f"Median HD time = {HD_time:.2f} μs")
         print(f"Percentile difference = {percentile_diff:.0f}%\n")
 
         if not self.perdeuterated:
-            hh_mean = (self.data["HH time"] / self.data["Diss time"]).mean() * 100
+            hh_mean = (self.data["HH time"] / self.data["Diss time"]).mean() * 100 * 10
+            hd_mean = (self.data["HD time"] / self.data["Diss time"]).mean() * 100
             print(f"HH mean relative time: {hh_mean:.1f}%")
         else:
-            dd_mean = (self.data["DD time"] / self.data["Diss time"]).mean() * 100
+            dd_mean = (self.data["DD time"] / self.data["Diss time"]).mean() * 100 * 10
+            hd_mean = (self.data["HD time"] / self.data["Diss time"]).mean() * 100
             print(f"DD mean relative time: {dd_mean:.1f}%")
 
-        hd_mean = (self.data["HD time"] / self.data["Diss time"]).mean() * 100
         print(f"HD mean relative time: {hd_mean:.1f}%")
+        print("")
 
 
 class DissociationAnalysis(Settings):
@@ -576,7 +599,7 @@ class DissociationAnalysis(Settings):
         plt.show()
 
 
-    def average_symmetries(df, symmetries):
+    def average_symmetries(self, df, symmetries):
         averaged_df = df.copy()
         for key, value in symmetries.items():
             if key in df.columns and value in df.columns:
