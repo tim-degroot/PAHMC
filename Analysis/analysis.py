@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import ast
 import re
 import numpy as np
+import scipy.stats as stats
 
 figsize: set = (5, 4)
 dpi: int = 150
@@ -116,7 +117,7 @@ class RRKM(Settings):
                 filepath = os.path.join(self.folder, filename)
                 data = np.loadtxt(filepath, skiprows=2)
                 label = (
-                    f"{"H" if "H" in filename else "D"} {self._parse_label(filename)}"
+                    f"{self._parse_label(filename)}"
                 )
 
                 color = "dimgray" if "H" in filename else "darkgray"
@@ -206,6 +207,7 @@ class MonteCarlo(Settings):
         numbering: list,
         name: str,
         perdeuterated: bool = False,
+        symmetries: dict = {},
     ):
         super().__init__(figsize, dpi)
         file_types = {
@@ -223,12 +225,14 @@ class MonteCarlo(Settings):
         self.name = name
         self.numbering = self.process_numbering(numbering)
         self.data = self.process_data()
+        self.symmetries = symmetries
         self.dissociation_counts, self.dissociation_positions = self.process_output()
         try:
             self.hops = self.process_hops()
         except FileNotFoundError:
             pass
         self.end_structures = self.process_endstruct()
+        
 
     def process_data(self):
         data_frames = []
@@ -275,8 +279,16 @@ class MonteCarlo(Settings):
                                 k, v = parts
                                 positions_dict[int(k)] = int(v)
                         dissociation_positions.append(positions_dict)
+        
+        df = pd.DataFrame(dissociation_positions)
 
-        return pd.DataFrame(dissociation_counts), pd.DataFrame(dissociation_positions)
+        dissociation_positions_merged = pd.DataFrame()
+
+        for value, key in self.symmetries.items():
+            if key in df.columns and value in df.columns:
+                dissociation_positions_merged[key] = pd.concat([df[key], df[value]], ignore_index=True)
+
+        return pd.DataFrame(dissociation_counts), pd.DataFrame(dissociation_positions_merged)
 
     def process_hops(self):
         data_frames = []
@@ -346,7 +358,7 @@ class MonteCarlo(Settings):
         plt.figure(figsize=self.figsize, dpi=self.dpi)
         df.mean().plot(kind="bar", color="dimgray", yerr=df.std(), capsize=4)
         plt.ylabel("Occurences [%]")
-        plt.xlabel("Hop (summed over symmetries)")
+        plt.xlabel("Hop")
         plt.xticks(rotation=60)
         plt.show()
 
@@ -365,6 +377,7 @@ class MonteCarlo(Settings):
         plt.hist(data["# hops"], bins=128, color="dimgray")
         plt.xlabel("Total number of scrambling hops")
         plt.ylabel("Occurences")
+        plt.ticklabel_format(style='sci', axis='x', scilimits=(0,0))
         plt.show()
 
     def histogram_hops_comparison(self):
@@ -378,11 +391,12 @@ class MonteCarlo(Settings):
         axs[1].hist(data["# H hops"], bins=128, label="H hops", color="darkgray")
 
         fig.supxlabel("Number of scrambling hops")
-
         fig.supylabel("Occurences")
 
         for ax in axs:
             ax.label_outer()
+
+        plt.ticklabel_format(style='sci', axis='x', scilimits=(0,0))
 
         axs[0].legend()
         axs[1].legend()
@@ -466,11 +480,13 @@ class MonteCarlo(Settings):
         mean_positions = self.dissociation_positions.mean()
         std_positions = self.dissociation_positions.std()
 
+        index = np.arange(len(mean_positions.index))
+
         plt.figure(figsize=self.figsize, dpi=self.dpi)
-        plt.bar(mean_positions.index, mean_positions.values, yerr=std_positions.values, capsize=5, color="dimgray")
+        plt.bar(index, mean_positions.values, yerr=std_positions.values, capsize=5, color="dimgray")
         plt.xlabel("Dissociation position")
         plt.ylabel("Occurrence")
-        plt.xticks(np.arange(min(mean_positions.index), max(mean_positions.index) + 1, 1))
+        plt.xticks(index, mean_positions.index)
         plt.show()
 
     def mass_spectra(self, parent_ion):
@@ -482,7 +498,7 @@ class MonteCarlo(Settings):
         d_diss = (self.data["Diss atom"] == "D").sum() / len(self.data) * 100
 
 
-        masses = [parent_ion, lost_hydrogen, lost_deuterium]
+        masses = [parent_ion, parent_ion - 1, parent_ion - 2]
 
         plt.figure(figsize=self.figsize, dpi=self.dpi)
         if not self.perdeuterated:
@@ -493,6 +509,7 @@ class MonteCarlo(Settings):
                 markerfmt="",
                 linefmt="black",
             )
+            # plt.stem([mass + 0.1 for mass in masses], [0, 95, 5], basefmt=" ", markerfmt ="", linefmt="dimgray")
             # plt.stem(masses, [100, hh_percentage, hd_percentage], color=['lightgray', 'dimgray', 'darkgray'], width=0.01)
         else:
             plt.stem(
@@ -502,6 +519,7 @@ class MonteCarlo(Settings):
                 markerfmt="",
                 linefmt="black",
             )
+            # plt.stem([mass + 0.1 for mass in masses], [0, 5, 95], basefmt=" ", markerfmt ="", linefmt="dimgray")
 
         plt.stem(parent_ion + 0.1, 100, basefmt=" ", markerfmt="", linefmt="dimgray")
         plt.xlabel("m/z (amu/e)")
@@ -513,10 +531,11 @@ class MonteCarlo(Settings):
     def data_tables(self):
         print(f"Data analysis for {self.name}")
         data = self.dissociation_counts.mean()
+        std = np.std(self.dissociation_counts['H']) / np.sqrt(len(self.dissociation_counts))
         print(
             f"% dissociated in 20 ms = {(data["H"].sum() + data["D"].sum())/data.sum()*100:.2f}%"
         )
-        print(f"H/D loss ratio = {data["H"].sum()/data.sum()*100:.2f}%/{data["D"].sum()/data.sum()*100:.2f}%")
+        print(f"H/D loss ratio = {data["H"].sum()/data.sum()*100:.1f}%/{data["D"].sum()/data.sum()*100:.1f}% ±{std:.1f}%")
         data = self.data.dropna(subset=["Diss pos"])
 
         print(f"Median dissociation time = {data["Diss time"].median()*1e6:.1f} μs")
@@ -560,14 +579,10 @@ class DissociationAnalysis(Settings):
         super().__init__(figsize, dpi)
         self.alpha, self.beta = alpha, beta
 
-    def histogram(self, symmetries):
+    def histogram(self):
 
-        alpha_positions = self.average_symmetries(
-            self.alpha.dissociation_positions, symmetries
-        )
-        beta_positions = self.average_symmetries(
-            self.beta.dissociation_positions, symmetries
-        )
+        alpha_positions = self.alpha.dissociation_positions 
+        beta_positions = self.beta.dissociation_positions
 
         bar_width = 0.4  # Width of the bars
         index = np.arange(len(alpha_positions.mean().index))  # The label locations
@@ -593,16 +608,7 @@ class DissociationAnalysis(Settings):
         )
 
         plt.xlabel("Dissociation position")
-        plt.ylabel("Occurrence (averaged over symmetric places)")
+        plt.ylabel("Occurrences")
         plt.xticks(index, alpha_positions.mean().index)
         plt.legend()
         plt.show()
-
-
-    def average_symmetries(self, df, symmetries):
-        averaged_df = df.copy()
-        for key, value in symmetries.items():
-            if key in df.columns and value in df.columns:
-                averaged_df[key] = (df[key] + df[value]) / 2
-                averaged_df.drop(columns=[value], inplace=True)
-        return averaged_df
