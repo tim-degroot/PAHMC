@@ -284,9 +284,14 @@ class MonteCarlo(Settings):
 
         dissociation_positions_merged = pd.DataFrame()
 
-        for value, key in self.symmetries.items():
-            if key in df.columns and value in df.columns:
-                dissociation_positions_merged[key] = pd.concat([df[key], df[value]], ignore_index=True)
+        for key, value in self.symmetries.items():
+            if isinstance(value, list):
+                for v in value:
+                    if v in df.columns and key in df.columns:
+                        dissociation_positions_merged[key] = pd.concat([df[key], df[v]], ignore_index=True)
+            else:
+                if value in df.columns and key in df.columns:
+                    dissociation_positions_merged[key] = pd.concat([df[key], df[value]], ignore_index=True)
 
         return pd.DataFrame(dissociation_counts), pd.DataFrame(dissociation_positions_merged)
 
@@ -532,19 +537,21 @@ class MonteCarlo(Settings):
         print(f"Data analysis for {self.name}")
         data = self.dissociation_counts.mean()
         std = np.std(self.dissociation_counts['H']) / np.sqrt(len(self.dissociation_counts))
-        print(
-            f"% dissociated in 20 ms = {(data["H"].sum() + data["D"].sum())/data.sum()*100:.2f}%"
-        )
-        print(f"H/D loss ratio = {data["H"].sum()/data.sum()*100:.1f}%/{data["D"].sum()/data.sum()*100:.1f}% ±{std:.1f}%")
-        data = self.data.dropna(subset=["Diss pos"])
 
+        dissociated = (data["H"].sum() + data["D"].sum())/data.sum()*100
+        print(f"% dissociated in 20 ms = {dissociated:.2f}%")
+
+        H_dissociated = (data["H"].sum()/data.sum()*100) / dissociated * 100
+        D_dissociated = (data["D"].sum()/data.sum()*100) / dissociated * 100
+        print(f"H/D loss ratio = {H_dissociated:.1f}%/{D_dissociated:.1f}% ±{std:.1f}%")
+        
+        data = self.data.dropna(subset=["Diss pos"])
         print(f"Median dissociation time = {data["Diss time"].median()*1e6:.1f} μs")
         print(f"Median Scrambling hops = {self.data["# hops"].median()/1e6:.1f}M\n")
 
         h_median = self.data["# H hops"].median()
         d_median = self.data["# D hops"].median()
         percentile_diff = (h_median - d_median) / d_median * 100
-
         print(f"Median H scrambling hops = {h_median/1e3:.0f}K")
         print(f"Median D scrambling hops = {d_median/1e3:.0f}K")
         print(f"Percentile difference = {percentile_diff:.2f}%\n")
@@ -556,7 +563,6 @@ class MonteCarlo(Settings):
         )
         HD_time = self.data["HD time"].median() * 1e6
         percentile_diff = (HH_or_DD_time - HD_time) / HD_time * 100
-
         print(f"Median {"DD" if self.perdeuterated else "HH"} time = {HH_or_DD_time:.2f} μs")
         print(f"Median HD time = {HD_time:.2f} μs")
         print(f"Percentile difference = {percentile_diff:.0f}%\n")
