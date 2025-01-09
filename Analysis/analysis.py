@@ -5,6 +5,8 @@ import ast
 import re
 import numpy as np
 import scipy.stats as stats
+from PAHMC import Input
+import sys
 
 figsize: set = (5, 4)
 dpi: int = 150
@@ -172,9 +174,10 @@ class RRKM(Settings):
         for filename in subset:
             pair = self._extract_pair(filename)
             if "diss" in filename:
-                number = int(pair[0]) if len(pair) == 1 else int(pair[1])
-                index = unique_numbers.index(number)
-                colors[pair] = color_cycle[index % len(color_cycle)]
+                number = int(pair[0]) if len(pair) == 1 and pair[0].isdigit() else int(pair[1]) if len(pair) > 1 and pair[1].isdigit() else None
+                if number is not None:
+                    index = unique_numbers.index(number)
+                    colors[pair] = color_cycle[index % len(color_cycle)]
             elif pair not in colors:
                 colors[pair] = color_cycle[len(colors) % len(color_cycle)]
         return colors
@@ -213,6 +216,7 @@ class MonteCarlo(Settings):
         simulations: list,
         numbering: list,
         name: str,
+        input: str,
         perdeuterated: bool = False,
         symmetries: dict = {},
     ):
@@ -239,6 +243,138 @@ class MonteCarlo(Settings):
         except FileNotFoundError:
             pass
         self.end_structures = self.process_endstruct()
+        self.input = input
+        self.position_times = self.hop_test()
+        self.ratios = self.RRKM_rates()
+
+    def hop_test(self):
+        yaml = Input.Input_reader(self.input)
+        from_list = list(set([x.split("to")[0] for x in self.hops.keys()]))
+        # print(self.symmetries)
+        results = pd.DataFrame()
+        
+        for origin in from_list:
+            if isinstance(origin, list):
+                symmetrical_origin = origin
+            else:
+                symmetrical_origin = [origin]
+            symmetrical_origin.extend(self.symmetries.get(origin, []))
+            filtered_hops = pd.DataFrame()
+            for prefix in symmetrical_origin:
+                filtered_columns = [col for col in self.hops.columns if col.split("to")[0] == prefix]
+                filtered_hops = pd.concat([filtered_hops, self.hops[filtered_columns]], axis=1)
+
+            filtered_hops = filtered_hops.reset_index(drop=True)
+            summed_results = pd.Series(0, index=filtered_hops.index)
+
+            for r_key in filtered_hops.columns:
+                column_data = filtered_hops[r_key]
+
+                E = yaml.energy
+                rate_idx = np.argmin((np.abs(yaml.reactionrates[r_key][0, :] - E)))
+                r_rate = yaml.reactionrates[r_key][1, rate_idx]
+                dt = 1 / np.sum(r_rate)
+
+                summed_results += column_data * dt
+
+            results[origin] = summed_results
+
+        summed_results = pd.DataFrame(index=results.index)
+
+        for num in set(col[1:] for col in results.columns if col.startswith(('H', 'D'))):
+            summed_results[f'{num}'] = results.get(f'H{num}', 0) + results.get(f'D{num}', 0)
+        
+        # check if summes_results contains symmetries and sum them together
+        for origin in summed_results.columns:
+            for key, value in self.symmetries.items():
+                if isinstance(value, int):
+                    value = [value]
+                values = [str(x) for x in value]
+                if origin in values:
+                    print(key, origin)
+                    summed_results[str(key)] += summed_results[str(origin)]
+                    summed_results.drop(columns=[origin], inplace=True)  # Drop the column
+
+        summed_results = summed_results.div(summed_results.sum(axis=1), axis=0)
+
+        return summed_results
+
+    def histogram_position_times(self):
+        results = self.position_times
+
+        mean_positions = results.mean()
+        std_positions = results.std()
+        index = np.arange(len(mean_positions.index))
+
+        plt.figure(figsize=self.figsize, dpi=self.dpi)
+        plt.bar(
+            index,
+            mean_positions.values,
+            yerr=std_positions.values,
+            capsize=5,
+            color="dimgray",
+        )
+        plt.xlabel("Position")
+        plt.ylabel("Total time spent")
+        plt.xticks(index, mean_positions.index)
+        plt.show()
+
+
+    def RRKM_rates(self):
+        yaml = Input.Input_reader(self.input)
+
+        rates = {}
+
+        # for r_key in [f"{mol}{pos}diss" for mol in ["H", "D"] for pos in self.symmetries.keys()]:
+        #     print(r_key)
+
+        for pos in self.symmetries.keys():
+            rate = 0
+            for mol in ["H", "D"]:
+                r_key = f"{mol}{pos}diss"
+                E = yaml.energy
+                rate_idx = np.argmin((np.abs(yaml.reactionrates[r_key][0, :] - E)))
+                r_rate = yaml.reactionrates[r_key][1, rate_idx]
+                if self.perdeuterated:
+                    if mol is "D":
+                        multiplier = 10/11
+                    elif mol is "H":
+                        multiplier = 1/11
+                else:
+                    if mol is "D":
+                        multiplier = 1/11
+                    elif mol is "H":
+                        multiplier = 10/11
+                rate += r_rate * multiplier
+            rates[pos] = rate
+        
+        min_value = min(rates.values())
+        ratios = {key: value / min_value for key, value in rates.items()}
+        ratios = pd.DataFrame([ratios], columns=ratios.keys())
+
+        ratios = ratios.div(ratios.sum(axis=1), axis=0)
+
+        return ratios
+
+    def plot_ratios(self):
+        result = self.ratios
+        mean_positions = result.mean()
+        std_positions = result.std()
+
+        index = np.arange(len(mean_positions.index))
+
+        plt.figure(figsize=self.figsize, dpi=self.dpi)
+        plt.bar(
+            index,
+            mean_positions.values,
+            yerr=std_positions.values,
+            capsize=5,
+            color="dimgray",
+        )
+        plt.xlabel("Dissociation position")
+        plt.ylabel(f"Relative dissociation rate at {Input.Input_reader(self.input).energy} eV")
+        plt.xticks(index, mean_positions.index)
+        plt.show()
 
     def process_data(self):
         data_frames = []
@@ -515,6 +651,70 @@ class MonteCarlo(Settings):
         plt.ylabel("Occurrence")
         plt.xticks(index, mean_positions.index)
         plt.show()
+
+    def histogram_dissociation_positions_relative(self):
+        result = pd.DataFrame()
+
+        for column in self.dissociation_positions.columns:
+            result[column] = self.dissociation_positions[column] / self.position_times.mean().loc[str(column)]
+
+        result = result.div(result.sum(axis=1), axis=0)
+
+        index = np.arange(len(result.mean().index))
+
+        plt.figure(figsize=self.figsize, dpi=self.dpi)
+        plt.bar(
+            index,
+            result.mean().values,
+            yerr=result.std().values,
+            capsize=5,
+            color="dimgray",
+        )
+        plt.xlabel("Dissociation position")
+        plt.ylabel("Occurrence divided by time on position (?)")
+        plt.xticks(index, result.mean().index)
+        plt.show()
+        
+        plt.clf()
+
+        result = result.div(self.ratios.iloc[0], axis=1)
+
+        index = np.arange(len(result.mean().index))
+
+        plt.figure(figsize=self.figsize, dpi=self.dpi)
+        plt.bar(
+            index,
+            result.mean().values,
+            yerr=result.std().values,
+            capsize=5,
+            color="dimgray",
+        )
+        plt.xlabel("Dissociation position")
+        plt.ylabel("Div by position time and reaction rate ratio (?)")
+        plt.xticks(index, result.mean().index)
+        plt.show()
+        
+        plt.clf()
+
+        result = self.dissociation_positions.div(self.ratios.iloc[0], axis=1)
+        result = result.div(result.sum(axis=1), axis=0)
+
+        plt.figure(figsize=self.figsize, dpi=self.dpi)
+        plt.bar(
+            index,
+            result.mean().values,
+            yerr=result.std().values,
+            capsize=5,
+            color="dimgray",
+        )
+        plt.xlabel("Dissociation position")
+        plt.ylabel("Dissociation position divided by reaction rate ratio (?)")
+        plt.xticks(index, result.mean().index)
+        plt.show()
+        
+        plt.clf()
+
+
 
     def mass_spectra(self, parent_ion):
         lost_hydrogen = parent_ion - 1
