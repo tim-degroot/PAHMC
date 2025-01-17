@@ -177,7 +177,11 @@ class RRKM(Settings):
         for filename in subset:
             pair = self._extract_pair(filename)
             if "diss" in filename:
-                number = int(pair[0]) if len(pair) == 1 and pair[0].isdigit() else int(pair[1]) if len(pair) > 1 and pair[1].isdigit() else None
+                number = (
+                    int(pair[0])
+                    if len(pair) == 1 and pair[0].isdigit()
+                    else int(pair[1]) if len(pair) > 1 and pair[1].isdigit() else None
+                )
                 if number is not None:
                     index = unique_numbers.index(number)
                     colors[pair] = color_cycle[index % len(color_cycle)]
@@ -257,7 +261,7 @@ class MonteCarlo(Settings):
         yaml = Input.Input_reader(self.input)
         from_list = list(set([x.split("to")[0] for x in self.hops.keys()]))
         results = pd.DataFrame()
-        
+
         for origin in from_list:
             if isinstance(origin, list):
                 symmetrical_origin = origin
@@ -266,8 +270,12 @@ class MonteCarlo(Settings):
             symmetrical_origin.extend(self.symmetries.get(origin, []))
             filtered_hops = pd.DataFrame()
             for prefix in symmetrical_origin:
-                filtered_columns = [col for col in self.hops.columns if col.split("to")[0] == prefix]
-                filtered_hops = pd.concat([filtered_hops, self.hops[filtered_columns]], axis=1)
+                filtered_columns = [
+                    col for col in self.hops.columns if col.split("to")[0] == prefix
+                ]
+                filtered_hops = pd.concat(
+                    [filtered_hops, self.hops[filtered_columns]], axis=1
+                )
 
             filtered_hops = filtered_hops.reset_index(drop=True)
             summed_results = pd.Series(0, index=filtered_hops.index)
@@ -286,9 +294,13 @@ class MonteCarlo(Settings):
 
         summed_results = pd.DataFrame(index=results.index)
 
-        for num in set(col[1:] for col in results.columns if col.startswith(('H', 'D'))):
-            summed_results[f'{num}'] = results.get(f'H{num}', 0) + results.get(f'D{num}', 0)
-        
+        for num in set(
+            col[1:] for col in results.columns if col.startswith(("H", "D"))
+        ):
+            summed_results[f"{num}"] = results.get(f"H{num}", 0) + results.get(
+                f"D{num}", 0
+            )
+
         # check if summes_results contains symmetries and sum them together
         for origin in summed_results.columns:
             for key, value in self.symmetries.items():
@@ -297,7 +309,9 @@ class MonteCarlo(Settings):
                 values = [str(x) for x in value]
                 if origin in values:
                     summed_results[str(key)] += summed_results[str(origin)]
-                    summed_results.drop(columns=[origin], inplace=True)  # Drop the column
+                    summed_results.drop(
+                        columns=[origin], inplace=True
+                    )  # Drop the column
 
         summed_results = summed_results.div(summed_results.sum(axis=1), axis=0)
 
@@ -306,10 +320,14 @@ class MonteCarlo(Settings):
     def RRKM_rates(self):
         yaml = Input.Input_reader(self.input)
 
-        rates = {}
+        rates_avg = {}
+        rates_H = {}
+        rates_D = {}
 
         for pos in self.symmetries.keys():
-            rate = 0
+            rate_avg = 0
+            rate_H = 0
+            rate_D = 0
             for mol in ["H", "D"]:
                 r_key = f"{mol}{pos}diss"
                 E = yaml.energy
@@ -317,22 +335,40 @@ class MonteCarlo(Settings):
                 r_rate = yaml.reactionrates[r_key][1, rate_idx]
                 if self.perdeuterated:
                     if mol == "D":
-                        multiplier = 10/11
+                        multiplier = 10 / 11
                     elif mol == "H":
-                        multiplier = 1/11
+                        multiplier = 1 / 11
                 else:
                     if mol == "D":
-                        multiplier = 1/11
+                        multiplier = 1 / 11
                     elif mol == "H":
-                        multiplier = 10/11
-                rate += r_rate * multiplier
-            rates[pos] = rate
-        
-        min_value = min(rates.values())
-        ratios = {key: value / min_value for key, value in rates.items()}
-        ratios = pd.DataFrame([ratios], columns=ratios.keys())
+                        multiplier = 10 / 11
+                rate_avg += r_rate * multiplier
+                if mol == "H":
+                    rate_H += r_rate
+                elif mol == "D":
+                    rate_D += r_rate
+            rates_avg[pos] = rate_avg
+            rates_H[pos] = rate_H
+            rates_D[pos] = rate_D
 
-        ratios = ratios.div(ratios.sum(axis=1), axis=0)
+        min_value_avg = min(rates_avg.values())
+        min_value_H = min(rates_H.values())
+        min_value_D = min(rates_D.values())
+
+        ratios_avg = {key: value / min_value_avg for key, value in rates_avg.items()}
+        ratios_H = {key: value / min_value_H for key, value in rates_H.items()}
+        ratios_D = {key: value / min_value_D for key, value in rates_D.items()}
+
+        ratios_avg = pd.DataFrame([ratios_avg], columns=ratios_avg.keys())
+        ratios_H = pd.DataFrame([ratios_H], columns=ratios_H.keys())
+        ratios_D = pd.DataFrame([ratios_D], columns=ratios_D.keys())
+
+        ratios_avg = ratios_avg.div(ratios_avg.sum(axis=1), axis=0)
+        ratios_H = ratios_H.div(ratios_H.sum(axis=1), axis=0)
+        ratios_D = ratios_D.div(ratios_D.sum(axis=1), axis=0)
+
+        ratios = pd.concat([ratios_avg, ratios_H, ratios_D], keys=["Avg", "H", "D"])
 
         return ratios
 
@@ -465,7 +501,7 @@ class MonteCarlo(Settings):
         self.histogram_time_percentage()
 
     def plot_ratios(self):
-        result = self.ratios # TODO: Split ratios into H/D
+        result = self.ratios  # TODO: Split ratios into H/D
         mean_positions = result.mean()
         std_positions = result.std()
 
@@ -480,7 +516,9 @@ class MonteCarlo(Settings):
             color="dimgray",
         )
         plt.xlabel("Dissociation position")
-        plt.ylabel(f"Relative dissociation rate at {Input.Input_reader(self.input).energy} eV")
+        plt.ylabel(
+            f"Relative dissociation rate at {Input.Input_reader(self.input).energy} eV"
+        )
         plt.xticks(index, mean_positions.index)
         plt.show()
 
@@ -517,13 +555,13 @@ class MonteCarlo(Settings):
 
     def histogram_time(self):
         data = self.data.dropna(subset=["Diss pos"])
-        data = data["Diss time"] #* 1000
+        data = data["Diss time"]  # * 1000
         plt.figure(figsize=self.figsize, dpi=self.dpi)
         plt.hist(data, bins=128, color="dimgray")
         plt.xlabel("Dissociation time [s]")
         plt.ylabel("Occurences")
         plt.gca().xaxis.set_major_formatter(ticker.ScalarFormatter(useMathText=True))
-        plt.gca().ticklabel_format(style='sci', axis='x', scilimits=(0,0))
+        plt.gca().ticklabel_format(style="sci", axis="x", scilimits=(0, 0))
         plt.show()
 
     def histogram_time_kde(self, filter="Diss time"):
@@ -538,12 +576,14 @@ class MonteCarlo(Settings):
         hist, bin_edges = np.histogram(data, bins=bins)
 
         plt.figure(figsize=self.figsize, dpi=self.dpi)
-        plt.plot(bin_edges[:-1], hist, drawstyle='steps-post', color="darkgray")
+        plt.plot(bin_edges[:-1], hist, drawstyle="steps-post", color="darkgray")
 
         kde = gaussian_kde(data, bw_method="scott")
         x = np.linspace(0, data.max(), 1000)
         kde_values = kde(x)
-        plt.plot(x, kde_values * len(data) * bin_width_ms, label='KDE fit', color="dimgray")
+        plt.plot(
+            x, kde_values * len(data) * bin_width_ms, label="KDE fit", color="dimgray"
+        )
 
         median_peak = np.median(data)
 
@@ -551,18 +591,28 @@ class MonteCarlo(Settings):
         fwhm_indices = np.where(kde_values >= half_max)[0]
         fwhm = x[fwhm_indices[-1]] - x[fwhm_indices[0]]
 
-        plt.axvline(median_peak, color='r', linestyle='--', label=f'Median peak: {Quantity(median_peak, 's')}')
-        plt.axvline(x[fwhm_indices[0]], color='g', linestyle='--', label=f'FWHM: {Quantity(fwhm, 's')}')
-        plt.axvline(x[fwhm_indices[-1]], color='g', linestyle='--')
+        plt.axvline(
+            median_peak,
+            color="r",
+            linestyle="--",
+            label=f"Median peak: {Quantity(median_peak, 's')}",
+        )
+        plt.axvline(
+            x[fwhm_indices[0]],
+            color="g",
+            linestyle="--",
+            label=f"FWHM: {Quantity(fwhm, 's')}",
+        )
+        plt.axvline(x[fwhm_indices[-1]], color="g", linestyle="--")
 
         plt.gca().xaxis.set_major_formatter(ticker.ScalarFormatter(useMathText=True))
-        plt.gca().ticklabel_format(style='sci', axis='x', scilimits=(0,0))
+        plt.gca().ticklabel_format(style="sci", axis="x", scilimits=(0, 0))
 
         plt.xlabel("Time")
         plt.ylabel("Frequency")
         plt.title(f"Histogram of {filter}")
         plt.legend()
-        plt.show()        
+        plt.show()
 
     def histogram_hops(self):
         data = self.data.dropna(subset=["Diss pos"])
@@ -597,15 +647,11 @@ class MonteCarlo(Settings):
 
     def histogram_time_percentage(self):
         if not self.perdeuterated:
-            hh_time = (
-                self.data["HH time"] * 9 / self.data["Diss time"]
-            ).dropna() * 100
+            hh_time = (self.data["HH time"] * 9 / self.data["Diss time"]).dropna() * 100
             hd_time = (self.data["HD time"] / self.data["Diss time"]).dropna() * 100
         else:
             hd_time = (self.data["HD time"] / self.data["Diss time"]).dropna() * 100
-            dd_time = (
-                self.data["DD time"] * 9 / self.data["Diss time"]
-            ).dropna() * 100
+            dd_time = (self.data["DD time"] * 9 / self.data["Diss time"]).dropna() * 100
 
         fig, (ax1, ax2) = plt.subplots(
             1, 2, sharey=True, figsize=self.figsize, dpi=self.dpi
@@ -646,11 +692,11 @@ class MonteCarlo(Settings):
     def histogram_time_comparison(self):
         data = self.data.dropna(subset=["Diss pos"])
         if not self.perdeuterated:
-            hh_time = data["HH time"].dropna() 
+            hh_time = data["HH time"].dropna()
             hd_time = data["HD time"].dropna()
         else:
-            hd_time = data["HD time"].dropna() 
-            dd_time = data["DD time"].dropna() 
+            hd_time = data["HD time"].dropna()
+            dd_time = data["DD time"].dropna()
 
         fig = plt.figure(figsize=self.figsize, dpi=self.dpi)
         gs = fig.add_gridspec(2, hspace=0)
@@ -664,7 +710,7 @@ class MonteCarlo(Settings):
             axs[1].hist(dd_time, bins=128, label="DD time", color="darkgray")
 
         plt.gca().xaxis.set_major_formatter(ticker.ScalarFormatter(useMathText=True))
-        plt.gca().ticklabel_format(style='sci', axis='x', scilimits=(0,0))
+        plt.gca().ticklabel_format(style="sci", axis="x", scilimits=(0, 0))
 
         fig.supxlabel("Time [s]")
         fig.supylabel("Occurrences")
@@ -695,81 +741,12 @@ class MonteCarlo(Settings):
         plt.xticks(index, mean_positions.index)
         plt.show()
 
-    def histogram_dissociation_positions_relative(self):
-        ''' TODO: DEPRECATED '''
-        result = pd.DataFrame()
-
-        for column in self.dissociation_positions.columns:
-            result[column] = self.dissociation_positions[column] / self.position_times.mean().loc[str(column)]
-
-        result = result.div(result.sum(axis=1), axis=0)
-
-        index = np.arange(len(result.mean().index))
-
-        plt.figure(figsize=self.figsize, dpi=self.dpi)
-        plt.bar(
-            index,
-            result.mean().values,
-            yerr=result.std().values,
-            capsize=5,
-            color="dimgray",
-        )
-        plt.xlabel("Dissociation position")
-        plt.ylabel("Occurrence divided by time on position (?)")
-        plt.xticks(index, result.mean().index)
-        plt.show()
-        
-        plt.clf()
-
-        result = self.dissociation_positions.div(self.ratios.iloc[0], axis=1)
-        result = result.div(result.sum(axis=1), axis=0)
-
-        plt.figure(figsize=self.figsize, dpi=self.dpi)
-        plt.bar(
-            index,
-            result.mean().values,
-            yerr=result.std().values,
-            capsize=5,
-            color="dimgray",
-        )
-        plt.xlabel("Dissociation position")
-        plt.ylabel("Dissociation position divided by reaction rate ratio (?)")
-        plt.xticks(index, result.mean().index)
-        plt.show()
-        
-        plt.clf()
-
-        result = pd.DataFrame()
-
-        for column in self.dissociation_positions.columns:
-            result[column] = self.dissociation_positions[column] / self.position_times.mean().loc[str(column)]
-
-        result = result.div(result.sum(axis=1), axis=0)
-        result = result.div(self.ratios.iloc[0], axis=1)
-
-        index = np.arange(len(result.mean().index))
-
-        plt.figure(figsize=self.figsize, dpi=self.dpi)
-        plt.bar(
-            index,
-            result.mean().values,
-            yerr=result.std().values,
-            capsize=5,
-            color="dimgray",
-        )
-        plt.xlabel("Dissociation position")
-        plt.ylabel("Div by position time and reaction rate ratio (?)")
-        plt.xticks(index, result.mean().index)
-        plt.show()
-        
-        plt.clf()
-
     def histogram_diss_analysis(self, mol: list = ["H", "D"]):
-        ''' Compute data '''
+        """Compute data"""
         data = self.data.dropna(subset=["Diss pos"])
         data = data[data["Diss atom"].isin(mol)]
 
-        counts = data.groupby("Diss pos").size().reset_index(name='Occurences')
+        counts = data.groupby("Diss pos").size().reset_index(name="Occurences")
         counts.set_index("Diss pos", inplace=True)
 
         for key, value in self.symmetries.items():
@@ -782,7 +759,9 @@ class MonteCarlo(Settings):
 
         index = np.arange(len(counts.index))
 
-        ''' Plot histogram of Occurences / Dissociation position'''
+        ratios = self.ratios.loc["Avg"] if len(mol) == 2 else self.ratios.loc[mol[0]]
+
+        """ Plot histogram of Occurences / Dissociation position"""
         counts = counts.reindex(self.symmetries.keys())
 
         plt.figure(figsize=self.figsize, dpi=self.dpi)
@@ -791,13 +770,15 @@ class MonteCarlo(Settings):
         plt.ylabel("Occurences")
         plt.xticks(index, counts.index)
         plt.show()
-        
+
         plt.clf()
 
-        ''' Plot Occurence divided by time spent on position '''
+        """ Plot Occurence divided by time spent on position """
         result = pd.DataFrame()
         for pos in counts.index:
-            result.loc[pos, 'Occurences'] = counts.loc[pos, 'Occurences'] / self.position_times.mean().loc[str(pos)]
+            result.loc[pos, "Occurences"] = (
+                counts.loc[pos, "Occurences"] / self.position_times.mean().loc[str(pos)]
+            )
 
         plt.figure(figsize=self.figsize, dpi=self.dpi)
         plt.bar(index, result["Occurences"], color="dimgray")
@@ -805,12 +786,12 @@ class MonteCarlo(Settings):
         plt.ylabel("Occurrence divided by time spent")
         plt.xticks(index, result.index)
         plt.show()
-        
+
         plt.clf()
 
-        ''' Plot Occurence divided by reaction rate '''
+        """ Plot Occurence divided by reaction rate """
 
-        occurence_rate = counts.div(self.ratios.iloc[0], axis=0)
+        occurence_rate = counts.div(ratios.iloc[0], axis=0)
 
         plt.figure(figsize=self.figsize, dpi=self.dpi)
         plt.bar(index, occurence_rate["Occurences"], color="dimgray")
@@ -818,12 +799,11 @@ class MonteCarlo(Settings):
         plt.ylabel("Occurrence divided by reaction rate")
         plt.xticks(index, occurence_rate.index)
         plt.show()
-        
+
         plt.clf()
 
-
-        ''' Plot Occurence divided by reaction rate and time spent on position '''
-        result = result.div(self.ratios.iloc[0], axis=0)
+        """ Plot Occurence divided by reaction rate and time spent on position """
+        result = result.div(ratios.iloc[0], axis=0)
 
         plt.figure(figsize=self.figsize, dpi=self.dpi)
         plt.bar(index, result["Occurences"], color="dimgray")
@@ -831,9 +811,8 @@ class MonteCarlo(Settings):
         plt.ylabel("Occurrence divided by reaction rate and time spent")
         plt.xticks(index, result.index)
         plt.show()
-        
-        plt.clf()
 
+        plt.clf()
 
     def mass_spectra(self, parent_ion):
         no_diss = (self.data["Diss atom"].isna()).sum() / len(self.data) * 100
@@ -874,10 +853,16 @@ class MonteCarlo(Settings):
         data["%H"] = data["H"] / (data["H"] + data["D"])
         data["%D"] = data["D"] / (data["H"] + data["D"])
         print(data)
-                
-        print(f"Percentage dissociated = {data["Dissociated"].mean():.1%} ± {data["Dissociated"].std():.1%}")
-        combined_std = ((data["%H"].std() ** 2 + data["%D"].std() ** 2) ** 0.5) # TODO: check this
-        print(f"H/D loss ratio = {data["%H"].mean():.1%}/{data["%D"].mean():.1%} ± {combined_std:.1%}")
+
+        print(
+            f"Percentage dissociated = {data["Dissociated"].mean():.1%} ± {data["Dissociated"].std():.1%}"
+        )
+        combined_std = (
+            data["%H"].std() ** 2 + data["%D"].std() ** 2
+        ) ** 0.5  # TODO: check this
+        print(
+            f"H/D loss ratio = {data["%H"].mean():.1%}/{data["%D"].mean():.1%} ± {combined_std:.1%}"
+        )
 
         # print(f"H/D loss ratio = {H_dissociated:.1%}/{D_dissociated:.1%} ± {std_H_dissociated:.1%}/{std_D_dissociated:.1%}")
 
@@ -915,11 +900,17 @@ class MonteCarlo(Settings):
         print(f"Debugging: {data["% Time"].mean():.2%}, {data["% Time"].std():.2%}")
 
         if not self.perdeuterated:
-            print(f"HH mean relative time: {data["%HH time"].mean():.1%} ± {data["%HH time"].std():.1%}")
+            print(
+                f"HH mean relative time: {data["%HH time"].mean():.1%} ± {data["%HH time"].std():.1%}"
+            )
         else:
-            print(f"DD mean relative time: {data["%DD time"].mean():.1%} ± {data["%DD time"].std():.1%}")
+            print(
+                f"DD mean relative time: {data["%DD time"].mean():.1%} ± {data["%DD time"].std():.1%}"
+            )
 
-        print(f"HD mean relative time: {data["%HD time"].mean():.1%} ± {data["%HD time"].std():.1%}")
+        print(
+            f"HD mean relative time: {data["%HD time"].mean():.1%} ± {data["%HD time"].std():.1%}"
+        )
         print("")
 
 
