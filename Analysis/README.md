@@ -4,6 +4,10 @@ An analysis toolkit has been developped to quickly analyse and visualise the dat
 
 This documentation is a major work in progress and cannot be relied on at this moment.
 
+## How it works
+
+![Code2flow diagram](out.png)
+
 ## Usage
 
 Start by importing the analysis module and iinitialising some parameters that will be shared by all plots. You might have to add the path to the module to the path as well.
