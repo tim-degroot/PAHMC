@@ -15,6 +15,7 @@ from matplotlib.ticker import PercentFormatter
 figsize: set = (5, 4)
 dpi: int = 150
 
+
 class Settings:
     def __init__(self, figsize: set = (5, 4), dpi: int = 150):
         self.figsize = figsize
@@ -54,6 +55,8 @@ class RRKM(Settings):
         title: str = "",
         ylim: list = [10e-20, 10e13],
         xlim: list = [0.0, 5.2],
+        steps: float = 0.4,
+        sort_legend_by="colors",
     ):
         """
         Generate a plot for a specified subset of data files.
@@ -72,6 +75,7 @@ class RRKM(Settings):
         plt.figure(figsize=self.figsize, dpi=self.dpi)
 
         subset = self.rates.get(subset)
+        subset.sort()
 
         if filter_function is not None:
             subset = list(filter(filter_function, subset))
@@ -93,10 +97,39 @@ class RRKM(Settings):
 
         if len(xlim) > 0:
             plt.xlim(xlim)
-            plt.xticks(np.arange(xlim[0], xlim[1] + 0.4, 0.4))
+            plt.xticks(np.arange(xlim[0], xlim[1] + steps, steps))
 
         plt.title(title)
-        self._plot_plot()
+        self._plot_plot(sort_legend_by=sort_legend_by)
+
+    def quantify(self, param: str,filter_function=None, energy: float = 4.66):
+        subset = self.rates.get(param)
+        subset.sort()
+
+        if filter_function is not None:
+            subset = list(filter(filter_function, subset))
+
+        result = pd.DataFrame(columns=[]).set_index(pd.Index([]))
+
+        for i, filename in enumerate(subset):
+            filepath = os.path.join(self.folder, filename)
+            header = open(filepath, 'r').readline().strip()
+            barrier = float(re.search(r"E0=([0-9.]+)", header).group(1))
+            # print(barriers)
+            data = np.loadtxt(filepath, skiprows=2)
+            label_tuple = self._parse_label_tuple(filename)
+            label = self._parse_label(filename)
+
+            index = np.abs(data[:, 0] - energy).argmin()
+            new_row = [label_tuple["From"], label_tuple["To"]]
+            i = len(result)
+            result.loc[i, ["From", "To"]] = new_row
+            result.loc[i, f"{label_tuple["Atom"]} Rate"] = data[index, 1]
+            result.loc[i, f"{label_tuple["Atom"]} Barrier"] = barrier
+            # print(new_row, new_row.append(data[index, 1]) )
+
+        return result
+
 
     def plot_pairs(
         self, subset: str, title: str = "", ylim: list = [], xlim: list = [0.0, 5.2]
@@ -137,7 +170,7 @@ class RRKM(Settings):
             plt.title(title)
             self._plot_plot()
 
-    def _plot_plot(self, sort_legend_by="pairs"):
+    def _plot_plot(self, sort_legend_by="colors"):
         """
         Finalize the plot with labels, scales, and legend.
 
@@ -155,6 +188,10 @@ class RRKM(Settings):
         elif sort_legend_by == "pairs":
             labels, handles = zip(
                 *sorted(zip(labels, handles), key=lambda t: self._extract_pair(t[0]))
+            )
+        elif sort_legend_by == "colors":
+            labels, handles = zip(
+                *sorted(zip(labels, handles), key=lambda t: t[1].get_color())
             )
 
         plt.legend(handles, labels, loc="lower right")
@@ -214,6 +251,17 @@ class RRKM(Settings):
             parts = base_name.split("diss")
             return f"{base_name[0]} {parts[0][1:]}"
         return label
+    
+    def _parse_label_tuple(self, label):
+        base_name = os.path.splitext(label)[0]
+        if "to" in base_name:
+            parts = base_name.split("to")
+            return {"From": parts[0][1:], "To": parts[1], "Atom": base_name[0]}
+        elif "diss" in base_name:
+            parts = base_name.split("diss")
+            return {"From": parts[0][1:], "To": "diss", "Atom": base_name[0]}
+            return f"{base_name[0]} {parts[0][1:]}"
+        # f"{base_name[0]} {parts[0][1:]} to {parts[1]}"
 
 
 class MonteCarlo(Settings):
@@ -244,7 +292,9 @@ class MonteCarlo(Settings):
         self.numbering = self.process_numbering(numbering)
         self.data = self.process_data()
         self.symmetries = symmetries
-        self.dissociation_counts, self.dissociation_positions = self.process_output()
+        self.dissociation_counts, self.dissociation_raw, self.dissociation_positions = (
+            self.process_output()
+        )
         try:
             self.hops = self.process_hops()
         except FileNotFoundError:
@@ -254,13 +304,15 @@ class MonteCarlo(Settings):
         except FileNotFoundError:
             self.end_structures = None
         self.input = input
+        self.input_data = Input.Input_reader(self.input)
         self.ratios = self.RRKM_rates()
 
-    def position_times(self, mol: list = ["H", "D"]):
+    def position_times(self, mol: list = ["H", "D"], time=True):
         yaml = Input.Input_reader(self.input)
         full_list = list(set([x.split("to")[0] for x in self.hops.keys()]))
         from_list = [y for y in full_list if y[0] in mol]
-        results = pd.DataFrame()
+        time_results = pd.DataFrame()
+        occurrence_results = pd.DataFrame()
 
         for origin in from_list:
             if isinstance(origin, list):
@@ -278,7 +330,8 @@ class MonteCarlo(Settings):
                 )
 
             filtered_hops = filtered_hops.reset_index(drop=True)
-            summed_results = pd.Series(0, index=filtered_hops.index)
+            summed_time_results = pd.Series(0, index=filtered_hops.index)
+            summed_occurrence_results = pd.Series(0, index=filtered_hops.index)
 
             for r_key in filtered_hops.columns:
                 column_data = filtered_hops[r_key]
@@ -288,42 +341,74 @@ class MonteCarlo(Settings):
                 r_rate = yaml.reactionrates[r_key][1, rate_idx]
                 dt = 1 / np.sum(r_rate)
 
-                summed_results += column_data * dt
+                summed_time_results += column_data * dt
+                summed_occurrence_results += column_data
 
-            results[origin] = summed_results
+            time_results[origin] = summed_time_results
+            occurrence_results[f"{origin}"] = summed_occurrence_results
 
-        summed_results = pd.DataFrame(index=results.index)
+            summed_time_results = pd.DataFrame(index=time_results.index)
+            summed_occurrence_results = pd.DataFrame(index=occurrence_results.index)
+
 
         for num in set(
-            col[1:] for col in results.columns if col.startswith(("H", "D"))
+            col[1:] for col in time_results.columns if col.startswith(("H", "D"))
         ):
-            summed_results[f"{num}"] = results.get(f"H{num}", 0) + results.get(
+            summed_time_results[f"{num}"] = time_results.get(f"H{num}", 0) + time_results.get(
                 f"D{num}", 0
             )
+            summed_occurrence_results[f"{num}"] = occurrence_results.get(
+                f"H{num}", 0
+            ) + occurrence_results.get(f"D{num}", 0)
 
         # check if summes_results contains symmetries and sum them together
-        for origin in summed_results.columns:
+        for origin in summed_time_results.columns:
             for key, value in self.symmetries.items():
                 if isinstance(value, int):
                     value = [value]
                 values = [str(x) for x in value]
                 if origin in values:
-                    summed_results[str(key)] += summed_results[str(origin)]
-                    summed_results.drop(
+                    summed_time_results[str(key)] += summed_time_results[str(origin)]
+                    summed_time_results.drop(
                         columns=[origin], inplace=True
                     )  # Drop the column
 
-        summed_results = summed_results.div(summed_results.sum(axis=1), axis=0)
+        for origin in summed_occurrence_results.columns:
+            for key, value in self.symmetries.items():
+                if isinstance(value, int):
+                    value = [value]
+                values = [str(x) for x in value]
+                if origin in values:
+                    summed_occurrence_results[str(key)] += summed_occurrence_results[str(origin)]
+                    summed_occurrence_results.drop(
+                        columns=[origin], inplace=True
+                    )  # Drop the column
 
-        return summed_results
+        factors = {}
+        for key, value in self.symmetries.items():
+            if isinstance(value, int):
+                value = [value]
+            factors[key] = 1+len(value)
+        minimum = min(factors.values())
+        factors = {str(k): int(v/minimum) for k, v in factors.items()}
+        
+        print(summed_time_results.keys(), factors.keys())
+
+        for key, factor in factors.items():
+            summed_time_results[str(key)] /= factor
+            summed_occurrence_results[str(key)] /= factor
+
+
+        summed_time_results = summed_time_results.div(summed_time_results.sum(axis=1), axis=0) # TODO: does this normalize the entire dataset or per row
+        summed_occurrence_results = summed_occurrence_results.div(summed_occurrence_results.sum(axis=1), axis=0)
+
+        return summed_time_results if time else summed_occurrence_results
 
     def RRKM_rates(self):
-        ''' TODO: This function should be optimized by first getting the rates for H 
-        and D as rows and then easily determining the weighted average of those two rows'''
         yaml = Input.Input_reader(self.input)
 
         rates = pd.DataFrame()
-        
+
         for pos in self.symmetries.keys():
             for mol in ["H", "D"]:
                 r_key = f"{mol}{pos}diss"
@@ -333,11 +418,47 @@ class MonteCarlo(Settings):
                 rates.loc[mol, pos] = r_rate
 
         if self.perdeuterated:
-            rates.loc["Avg"] = 10/11 * rates.loc["D"] + 1/11 * rates.loc["H"]
+            rates.loc["Avg"] = 10 / 11 * rates.loc["D"] + 1 / 11 * rates.loc["H"]
         else:
-            rates.loc["Avg"] = 1/11 * rates.loc["D"] + 10/11 * rates.loc["H"]
+            rates.loc["Avg"] = 1 / 11 * rates.loc["D"] + 10 / 11 * rates.loc["H"]
 
-        return rates.apply(lambda row: row / row.min(), axis=1)
+        rates.loc["H/D ratio"] = rates.loc["H"] / rates.loc["D"]
+
+        maximum = max(rates.loc["D"].max(), rates.loc["H"].max())
+        rates.loc["D"] /= maximum
+        rates.loc["H"] /= maximum
+        rates.loc["Avg"] /= rates.loc["Avg"].max()
+
+        return rates
+    
+    def formatted_ratios(self):
+        yaml = Input.Input_reader(self.input)
+
+        rates = pd.DataFrame()
+
+        for pos in self.symmetries.keys():
+            for mol in ["H", "D"]:
+                r_key = f"{mol}{pos}diss"
+                E = yaml.energy
+                rate_idx = np.argmin((np.abs(yaml.reactionrates[r_key][0, :] - E)))
+                r_rate = yaml.reactionrates[r_key][1, rate_idx]
+                rates.loc[mol, pos] = r_rate
+                print(r_rate)
+
+        if self.perdeuterated:
+            rates.loc["Avg"] = 10 / 11 * rates.loc["D"] + 1 / 11 * rates.loc["H"]
+        else:
+            rates.loc["Avg"] = 1 / 11 * rates.loc["D"] + 10 / 11 * rates.loc["H"]
+
+        rates.loc["H/D ratio"] = rates.loc["H"] / rates.loc["D"]
+
+        maximum = max(rates.loc["D"].max(), rates.loc["H"].max())
+        rates.loc["D_normalized"] = rates.loc["D"] / maximum
+        rates.loc["H_normalized"] = rates.loc["H"] / maximum
+        rates.loc["Avg"] /= rates.loc["Avg"].max()
+
+        return rates
+
 
     def process_data(self):
         data_frames = []
@@ -345,6 +466,7 @@ class MonteCarlo(Settings):
         for file in self.files["data"]:
             df = pd.read_csv(file, na_values=["None"])
             df.columns = df.columns.str.strip()
+            df["MC#"] = df["MC#"].apply(lambda x: f"{x}-{file.split('/')[-1][0]}")
             df.set_index(df.columns[0], inplace=True)
             df.loc[df["Diss pos"].isna(), "Diss time"] = np.nan
             df["# H hops"] = df["# hops"] - df["# D hops"]
@@ -387,23 +509,30 @@ class MonteCarlo(Settings):
 
         df = pd.DataFrame(dissociation_positions)
 
-        dissociation_positions_merged = pd.DataFrame()
+        dissociation_positions_merged = pd.DataFrame(0, index=df.index, columns=self.symmetries.keys())
+
+        for key in self.symmetries.keys():
+            dissociation_positions_merged[key] = df[key]
 
         for key, value in self.symmetries.items():
             if isinstance(value, list):
                 for v in value:
-                    if v in df.columns and key in df.columns:
-                        dissociation_positions_merged[key] = pd.concat(
-                            [df[key], df[v]], ignore_index=True
-                        )
+                    if v in df.columns:
+                        dissociation_positions_merged[key] += df[v]
+                        # dissociation_positions_merged[key] = pd.concat(
+                        #     [df[key], df[v]], ignore_index=True
+                        # )
             else:
-                if value in df.columns and key in df.columns:
-                    dissociation_positions_merged[key] = pd.concat(
-                        [df[key], df[value]], ignore_index=True
-                    )
+                if value in df.columns:
+                    dissociation_positions_merged[key] += df[value]
+                    # dissociation_positions_merged[key] = pd.concat(
+                    #     [df[key], df[value]], ignore_index=True
+                    # )
 
-        return pd.DataFrame(dissociation_counts), pd.DataFrame(
-            dissociation_positions_merged
+        return (
+            pd.DataFrame(dissociation_counts),
+            df,
+            dissociation_positions_merged,
         )
 
     def process_hops(self):
@@ -421,6 +550,7 @@ class MonteCarlo(Settings):
 
         for file in self.files["end_structures"]:
             df = pd.read_csv(file, sep="\t", header=None, names=["ID", "Structures"])
+            df["ID"] = df["ID"].apply(lambda x: f"{x}-{file.split('/')[-1][0]}")
             df.set_index("ID", inplace=True)
             df["Structures"] = df["Structures"].apply(self.safe_literal_eval)
             df["End position"] = None
@@ -434,7 +564,7 @@ class MonteCarlo(Settings):
 
         df = pd.concat(data_frames)
         df.replace(-1, pd.NA, inplace=True)
-        df.dropna(subset=["End position"], inplace=True)
+        # df.dropna(subset=["End position"], inplace=True)
 
         return df
 
@@ -458,32 +588,29 @@ class MonteCarlo(Settings):
         else:
             return [list(map(int, group.split(","))) for group in numbering.split(";")]
 
-    def plot_ratios(self):
-        ''' Plot the dissociation rate relative to the lowest rate '''
-        result = self.ratios.loc["Avg"]
+    def plot_ratios(self, yscale="linear"):
+        """Plot the dissociation rate relative to the highest rate"""
         energy = Input.Input_reader(self.input).energy
-        index = np.arange(len(result.index))
+        index = np.arange(len(self.ratios.loc["H"].index))
 
         plt.figure(figsize=self.figsize, dpi=self.dpi)
-        plt.bar(index,result.values,color="dimgray",)
-        plt.xlabel("Dissociation position")
-        plt.ylabel(
-            f"Relative dissociation rate at {energy} eV"
+        plt.scatter(
+            index,
+            self.ratios.loc["H"],
+            label="H",
+            color="dimgray",
         )
-        plt.xticks(index, result.index)
-        plt.show()
-
-        plt.clf()
-        
-        bar_width = 0.4
-
-        plt.figure(figsize=self.figsize, dpi=self.dpi)
-        plt.bar(index - bar_width / 2,self.ratios.loc["H"],bar_width,label="H",color="dimgray")
-        plt.bar(index + bar_width / 2,self.ratios.loc["D"],bar_width,label="D",color="darkgray")
+        plt.scatter(
+            index,
+            self.ratios.loc["D"],
+            label="D",
+            color="darkgray",
+        )
         plt.xlabel("Dissociation position")
         plt.ylabel(f"Relative dissociation rate at {energy} eV")
         plt.xticks(index, self.ratios.loc["H"].keys())
         plt.legend()
+        plt.yscale(yscale)
         plt.show()
 
         plt.clf()
@@ -493,7 +620,21 @@ class MonteCarlo(Settings):
 
         mean_positions = results.mean()
         std_positions = results.std()
+
+        if "8a" in mean_positions.index and "10a" in mean_positions.index:
+            mean_positions["10a"] += mean_positions["8a"]
+            std_positions["10a"] = np.sqrt(std_positions["10a"]**2 + std_positions["8a"]**2)
+            mean_positions = mean_positions.drop("8a")
+            std_positions = std_positions.drop("8a")
+
+
         index = np.arange(len(mean_positions.index))
+
+        sorted_index = sorted(mean_positions.index)
+        mean_positions = mean_positions[sorted_index]
+        std_positions = std_positions[sorted_index]
+        index = np.arange(len(sorted_index))
+
 
         plt.figure(figsize=self.figsize, dpi=self.dpi)
         plt.bar(
@@ -504,7 +645,7 @@ class MonteCarlo(Settings):
             color="dimgray",
         )
         plt.xlabel("Position")
-        plt.ylabel("Total time spent")
+        plt.ylabel("Time spent")
         plt.xticks(index, mean_positions.index)
         ax = plt.gca()
         ax.yaxis.set_major_formatter(PercentFormatter(xmax=1))
@@ -520,10 +661,24 @@ class MonteCarlo(Settings):
         index = np.arange(len(aligned_H.mean().index))
 
         plt.figure(figsize=self.figsize, dpi=self.dpi)
-        plt.bar(index - bar_width / 2, aligned_H.mean(), bar_width, label="H", color="dimgray")
-        plt.bar(index + bar_width / 2, aligned_D.mean(), bar_width, label="D", color="darkgray")
+        plt.bar(
+            index - bar_width / 2,
+            aligned_H.mean(),
+            bar_width,
+            yerr=aligned_H.std(),
+            label="H",
+            color="dimgray",
+        )
+        plt.bar(
+            index + bar_width / 2,
+            aligned_D.mean(),
+            bar_width,
+            yerr=aligned_D.std(),
+            label="D",
+            color="darkgray",
+        )
         plt.xlabel("Position")
-        plt.ylabel("Total time spent")
+        plt.ylabel("Time spent")
         plt.xticks(index, aligned_H.keys())
         plt.legend()
         ax = plt.gca()
@@ -609,11 +764,11 @@ class MonteCarlo(Settings):
         plt.figure(figsize=self.figsize, dpi=self.dpi)
         plt.hist(data["# hops"], bins=128, color="dimgray")
         plt.xlabel("Total number of scrambling hops")
-        plt.ylabel("Occurences")
+        plt.ylabel("Number of iterations")
         plt.ticklabel_format(style="sci", axis="x", scilimits=(0, 0))
         plt.show()
 
-    def histogram_hops_comparison(self):
+    def histogram_hops_comparison(self, ylim=None):
         data = self.data.dropna(subset=["Diss pos"])
 
         fig = plt.figure(figsize=self.figsize, dpi=self.dpi)
@@ -624,10 +779,12 @@ class MonteCarlo(Settings):
         axs[1].hist(data["# H hops"], bins=128, label="H hops", color="darkgray")
 
         fig.supxlabel("Number of scrambling hops")
-        fig.supylabel("Occurences")
+        fig.supylabel("Number of iterations")
 
         for ax in axs:
             ax.label_outer()
+            if ylim is not None:
+                ax.set_ylim(ylim)
 
         plt.ticklabel_format(style="sci", axis="x", scilimits=(0, 0))
 
@@ -665,6 +822,7 @@ class MonteCarlo(Settings):
 
         fig.supxlabel("Percentage time spent [%]")
         fig.supylabel("Occurrences")
+        fig.subplots_adjust(left=0.15)
 
         d = 0.02
         kwargs = dict(transform=ax1.transAxes, color="k", clip_on=False)
@@ -713,22 +871,23 @@ class MonteCarlo(Settings):
         plt.show()
 
     def histogram_dissociation_positions(self):
-        mean_positions = self.dissociation_positions.mean()
-        std_positions = self.dissociation_positions.std()
+        result = self.dissociation_positions.sum()
+        # std_positions = self.dissociation_positions.std()
+        error = np.sqrt(result)
 
-        index = np.arange(len(mean_positions.index))
+        index = np.arange(len(result.index))
 
         plt.figure(figsize=self.figsize, dpi=self.dpi)
         plt.bar(
             index,
-            mean_positions.values,
-            yerr=std_positions.values,
+            result.values,
+            yerr=error.values,
             capsize=5,
             color="dimgray",
         )
         plt.xlabel("Dissociation position")
         plt.ylabel("Occurrence")
-        plt.xticks(index, mean_positions.index)
+        plt.xticks(index, result.index)
         plt.show()
 
     def histogram_diss_analysis(self, mol: list = ["H", "D"]):
@@ -741,7 +900,7 @@ class MonteCarlo(Settings):
 
         for key, value in self.symmetries.items():
             if isinstance(value, list):
-                counts.loc[key] += counts.loc[value].sum() 
+                counts.loc[key] += counts.loc[value].sum()
                 counts.drop(value, inplace=True)
             else:
                 counts.loc[key] += counts.loc[value]
@@ -773,9 +932,10 @@ class MonteCarlo(Settings):
         result = pd.DataFrame()
         for pos in counts.index:
             result.loc[pos, "Occurences"] = (
-                counts.loc[pos, "Occurences"] / self.position_times(mol).mean().loc[str(pos)]
+                counts.loc[pos, "Occurences"]
+                / self.position_times(mol).mean().loc[str(pos)]
             )
-        
+
         result["Occurences"] = result["Occurences"] / result["Occurences"].sum()
         output["Occurences/time"] = result
 
@@ -793,7 +953,9 @@ class MonteCarlo(Settings):
         """ Plot Occurence divided by reaction rate """
 
         occurence_rate = counts.div(ratios, axis=0)
-        occurence_rate["Occurences"] = occurence_rate["Occurences"] / occurence_rate["Occurences"].sum()
+        occurence_rate["Occurences"] = (
+            occurence_rate["Occurences"] / occurence_rate["Occurences"].sum()
+        )
         output["Occurence/rate"] = occurence_rate
 
         plt.figure(figsize=self.figsize, dpi=self.dpi)
@@ -851,7 +1013,7 @@ class MonteCarlo(Settings):
                 linefmt="black",
             )
 
-        plt.stem(parent_ion + 0.1, 100, basefmt=" ", markerfmt="", linefmt="dimgray")
+        plt.stem(parent_ion + 0.1, 100, basefmt=" ", markerfmt="", linefmt="darkgray")
         plt.xlabel("m/z (amu/e)")
         plt.ylabel("Intensity [%]")
         plt.xlim(min(masses) - 2, max(masses) + 2)
@@ -863,30 +1025,74 @@ class MonteCarlo(Settings):
         data = self.data.copy()
         data = data[data["Diss atom"].isin(["H", "D"])]
 
-        counts = data.groupby(["Diss pos", "Diss atom"]).size().reset_index(name="Occurences")
-        counts = counts.pivot(index="Diss pos", columns="Diss atom", values="Occurences").fillna(0)
+        counts = (
+            data.groupby(["Diss pos", "Diss atom"])
+            .size()
+            .reset_index(name="Occurences")
+        )
+        counts["Occurences"] = counts["Occurences"].astype(float)
+        counts = counts.pivot(
+            index="Diss pos", columns="Diss atom", values="Occurences"
+        ).fillna(0)
 
         for column in counts.columns:
             for key, value in self.symmetries.items():
                 if isinstance(value, list):
                     counts.loc[key, column] += counts.loc[value, column].sum()
+                    counts.loc[key, column] /= 1 + len(value)
                 else:
                     counts.loc[key, column] += counts.loc[value, column]
+                    counts.loc[key, column] /= 2
 
-        counts.drop(self.symmetries.values(), inplace=True)
+        symmetry_values = []
+        for value in self.symmetries.values():
+            if isinstance(value, list):
+                symmetry_values.extend(value)
+            else:
+                symmetry_values.append(value)
+        counts.drop(symmetry_values, inplace=True)
 
         index = np.arange(len(counts.index))
-        bar_width = 0.4 
+        bar_width = 0.4
 
-        """ Plot histogram of Occurences / Dissociation position""" # TODO: Add error bars
+        """ Plot histogram of Occurences / Dissociation position"""  # TODO: Add error bars
         counts = counts.reindex(self.symmetries.keys())
-        counts["H"] /= counts["H"].sum()
-        counts["D"] /= counts["D"].sum()
+        counts["Error_H"] = np.sqrt(counts["H"])
+        counts["Error_D"] = np.sqrt(counts["D"])
+
+        sum_H = counts["H"].sum()
+        sum_D = counts["D"].sum()
+
+        counts["H"] /= sum_H
+        counts["D"] /= sum_D
+
+        counts["Error_H"] = np.sqrt(
+            (counts["Error_H"] / sum_H) ** 2
+            + (counts["H"] * np.sqrt(sum_H) / sum_H**2) ** 2
+        )
+        counts["Error_D"] = np.sqrt(
+            (counts["Error_D"] / sum_D) ** 2
+            + (counts["D"] * np.sqrt(sum_D) / sum_D**2) ** 2
+        )
 
         plt.figure(figsize=self.figsize, dpi=self.dpi)
 
-        plt.bar(index - bar_width / 2,counts["H"].values,bar_width,label="H",color="dimgray")
-        plt.bar(index + bar_width / 2,counts["D"].values,bar_width,label="D",color="darkgray")
+        plt.bar(
+            index - bar_width / 2,
+            counts["H"].values,
+            bar_width,
+            yerr=counts["Error_H"].values,
+            label="H",
+            color="dimgray",
+        )
+        plt.bar(
+            index + bar_width / 2,
+            counts["D"].values,
+            bar_width,
+            yerr=counts["Error_D"].values,
+            label="D",
+            color="darkgray",
+        )
 
         plt.xlabel("Dissociation position")
         plt.ylabel("Relative occurences")
@@ -901,61 +1107,286 @@ class MonteCarlo(Settings):
         """ Plot Occurence divided by time spent on position """
         result = pd.DataFrame()
         for mol in ["H", "D"]:
+            result[f"Error_{mol}"] = counts[f"Error_{mol}"]
             for pos in counts.index:
                 result.loc[pos, mol] = (
                     counts.loc[pos, mol] / self.position_times(mol).mean().loc[str(pos)]
                 )
-            result[mol] /= result[mol].sum()
-        
-        plt.figure(figsize=self.figsize, dpi=self.dpi)
-        plt.bar(index - bar_width / 2,result["H"].values,bar_width,label="H",color="dimgray")
-        plt.bar(index + bar_width / 2,result["D"].values,bar_width,label="D",color="darkgray")
-        plt.xlabel("Dissociation position")
-        plt.ylabel("Occurrence divided by time spent (s$^{-1}$)")
-        plt.xticks(index, result.index)
-        ax = plt.gca()
-        ax.yaxis.set_major_formatter(PercentFormatter(xmax=1))
-        plt.legend()
-        plt.show()
+            sum = result[mol].sum()
+            result[mol] /= sum
+            # print(counts[f"Error_{mol}"])
+            counts[f"Error_{mol}"] = np.sqrt(
+                (counts[f"Error_{mol}"] / sum) ** 2
+                + (result[mol] * np.sqrt(sum) / sum**2) ** 2
+            )
+            # print(counts[f"Error_{mol}"])
 
-        plt.clf()
+        # plt.figure(figsize=self.figsize, dpi=self.dpi)
+        # plt.bar(
+        #     index - bar_width / 2,
+        #     result["H"].values,
+        #     bar_width,
+        #     yerr=result["Error_H"].values,
+        #     label="H",
+        #     color="dimgray",
+        # )
+        # plt.bar(
+        #     index + bar_width / 2,
+        #     result["D"].values,
+        #     bar_width,
+        #     yerr=result["Error_D"].values,
+        #     label="D",
+        #     color="darkgray",
+        # )
+        # plt.xlabel("Dissociation position")
+        # plt.ylabel("Occurrence divided by time spent (s$^{-1}$)")
+        # plt.xticks(index, result.index)
+        # ax = plt.gca()
+        # ax.yaxis.set_major_formatter(PercentFormatter(xmax=1))
+        # plt.legend()
+        # plt.show()
+
+        # plt.clf()
 
         """ Plot Occurence divided by reaction rate """
         occurence_rate = pd.DataFrame()
-        
+
         for mol in ["H", "D"]:
             for pos in counts.index:
-                occurence_rate.loc[pos, mol] = (counts.loc[pos, mol] / self.ratios.loc[mol, pos])
+                occurence_rate.loc[pos, mol] = (
+                    counts.loc[pos, mol] / self.ratios.loc[mol, pos]
+                )
             occurence_rate[mol] /= occurence_rate[mol].sum()
 
-        plt.figure(figsize=self.figsize, dpi=self.dpi)
-        plt.bar(index - bar_width / 2,occurence_rate["H"].values,bar_width,label="H",color="dimgray")
-        plt.bar(index + bar_width / 2,occurence_rate["D"].values,bar_width,label="D",color="darkgray")
-        plt.xlabel("Dissociation position")
-        plt.ylabel("Occurrence divided by reaction rate")
-        plt.xticks(index, occurence_rate.index)
-        ax = plt.gca()
-        ax.yaxis.set_major_formatter(PercentFormatter(xmax=1))
-        plt.legend()
-        plt.show()
+        # plt.figure(figsize=self.figsize, dpi=self.dpi)
+        # plt.bar(
+        #     index - bar_width / 2,
+        #     occurence_rate["H"].values,
+        #     bar_width,
+        #     label="H",
+        #     color="dimgray",
+        # )
+        # plt.bar(
+        #     index + bar_width / 2,
+        #     occurence_rate["D"].values,
+        #     bar_width,
+        #     label="D",
+        #     color="darkgray",
+        # )
+        # plt.xlabel("Dissociation position")
+        # plt.ylabel("Occurrence divided by reaction rate")
+        # plt.xticks(index, occurence_rate.index)
+        # ax = plt.gca()
+        # ax.yaxis.set_major_formatter(PercentFormatter(xmax=1))
+        # plt.legend()
+        # plt.show()
 
-        plt.clf()
+        # plt.clf()
 
         """ Plot Occurence divided by reaction rate and time spent on position """
         for mol in ["H", "D"]:
             for pos in counts.index:
-                result.loc[pos, mol] = (result.loc[pos, mol] / self.ratios.loc[mol, pos])
+                result.loc[pos, mol] = result.loc[pos, mol] / self.ratios.loc[mol, pos]
             result[mol] /= result[mol].sum()
 
+        # def baseline(x):
+        #     return x - 1/len(occurence_rate.index)
+
+        # result = result.applymap(baseline)
+
+        # print(result)
+
         plt.figure(figsize=self.figsize, dpi=self.dpi)
-        plt.bar(index - bar_width / 2,result["H"].values,bar_width,label="H",color="dimgray")
-        plt.bar(index + bar_width / 2,result["D"].values,bar_width,label="D",color="darkgray")
+        plt.axhline(y=1/len(result["D"].values), color='black', linestyle='--', linewidth=1)
+        plt.bar(
+            index - bar_width / 2,
+            result["H"].values,
+            bar_width,
+            yerr=result["Error_H"].values,
+            label="H",
+            color="dimgray",
+        )
+        plt.bar(
+            index + bar_width / 2,
+            result["D"].values,
+            bar_width,
+            yerr=result["Error_D"].values,
+            label="D",
+            color="darkgray",
+        )
         plt.xlabel("Dissociation position")
-        plt.ylabel("Occurrence divided by reaction rate and time spent")
+        plt.ylabel("Occurrence divided by rate and time")
         plt.xticks(index, result.index)
         ax = plt.gca()
         ax.yaxis.set_major_formatter(PercentFormatter(xmax=1))
         plt.legend()
+        plt.show()
+
+        plt.clf()
+
+    def plot_dissociation_details(self, ax_1=('linear', (0,0.5)), ax_2=('linear', (0,1.1))):
+        """Compute data"""
+        data = self.data.copy()
+        data = data[data["Diss atom"].isin(["H", "D"])]
+
+        counts = (
+            data.groupby(["Diss pos", "Diss atom"])
+            .size()
+            .reset_index(name="Occurences")
+        )
+        counts["Occurences"] = counts["Occurences"].astype(float)
+        counts = counts.pivot(
+            index="Diss pos", columns="Diss atom", values="Occurences"
+        ).fillna(0)
+
+        for column in counts.columns:
+            for key, value in self.symmetries.items():
+                if isinstance(value, list):
+                    counts.loc[key, column] += counts.loc[value, column].sum()
+                    counts.loc[key, column] /= 1 + len(value)
+                else:
+                    counts.loc[key, column] += counts.loc[value, column]
+                    counts.loc[key, column] /= 2
+
+        symmetry_values = []
+        for value in self.symmetries.values():
+            if isinstance(value, list):
+                symmetry_values.extend(value)
+            else:
+                symmetry_values.append(value)
+        counts.drop(symmetry_values, inplace=True)
+
+        index = np.arange(len(counts.index))
+        bar_width = 0.4
+
+        """ Plot histogram of Occurences / Dissociation position"""  # TODO: Add error bars
+        counts = counts.reindex(self.symmetries.keys())
+        counts["Error_H"] = np.sqrt(counts["H"])
+        counts["Error_D"] = np.sqrt(counts["D"])
+
+        sum_H = counts["H"].sum()
+        sum_D = counts["D"].sum()
+
+        counts["H"] /= sum_H
+        counts["D"] /= sum_D
+
+        counts["Error_H"] = np.sqrt(
+            (counts["Error_H"] / sum_H) ** 2
+            + (counts["H"] * np.sqrt(sum_H) / sum_H**2) ** 2
+        )
+        counts["Error_D"] = np.sqrt(
+            (counts["Error_D"] / sum_D) ** 2
+            + (counts["D"] * np.sqrt(sum_D) / sum_D**2) ** 2
+        )
+        
+        ratios = {
+            "H": self.ratios.loc["H"],# / self.ratios.loc["H"].sum(),
+            "D": self.ratios.loc["D"],# / self.ratios.loc["D"].sum(),
+        }
+
+        position_times = {}
+        maximum = max(max(self.position_times("H", True).mean()), max(self.position_times("D", True).mean()))
+        # print(maximum)
+        for mol in ["H", "D"]:
+            position_times[mol] = []
+            mol_data = self.position_times(mol).mean()
+            for pos in self.symmetries.keys():
+                position_times[mol].append(
+                    mol_data.loc[str(pos)] # / maximum
+                )
+
+        position_occurences = {}
+        maximum = max(max(self.position_times("H", False).mean()), max(self.position_times("D", False).mean()))
+        for mol in ["H", "D"]:
+            position_occurences[mol] = []
+            mol_data = self.position_times(mol, False).mean()
+            for pos in self.symmetries.keys():
+                position_occurences[mol].append(
+                    mol_data.loc[str(pos)] / maximum
+                )
+
+
+        fig, ax = plt.subplots(
+            figsize=(self.figsize[0], self.figsize[1]),
+            dpi=self.dpi,
+            layout="constrained",
+        )
+        # ax = fig.add_subplot(111)
+
+        ax.bar(
+            index - bar_width / 2,
+            counts["H"].values,
+            bar_width,
+            yerr=counts["Error_H"].values,
+            label="Hydrogen dissocication",
+            color="dimgray",
+        )
+        ax.bar(
+            index + bar_width / 2,
+            counts["D"].values,
+            bar_width,
+            yerr=counts["Error_D"].values,
+            label="Deuterium dissociation",
+            color="darkgray",
+        )
+
+        ax2 = ax.twinx()
+        ax2.errorbar(
+            index - bar_width / 2,
+            ratios["H"],
+            label="Relative RRKM dissociation rate",
+            fmt="v",
+            color="#690000",
+        )
+        ax2.errorbar(
+            index + bar_width / 2,
+            ratios["D"],
+            # label="Deuterium relative RRKM rates",
+            fmt="v",
+            color="#a90000",
+        )
+
+        ax2.errorbar(
+            index - bar_width / 2,
+            position_times["H"],
+            label="Time spent at position",
+            fmt="s",
+            color="#006900",
+        )
+        ax2.errorbar(
+            index + bar_width / 2,
+            position_times["D"],
+            # label="Deuterium time spent at positions",
+            fmt="s",
+            color="#00a900",
+        )
+
+        # ax2.errorbar(
+        #     index - bar_width / 2,
+        #     position_occurences["H"],
+        #     label="Hops away from position",
+        #     fmt="o",
+        #     color="#000069",
+        # )
+        # ax2.errorbar(
+        #     index + bar_width / 2,
+        #     position_occurences["D"],
+        #     # label="Deuterium time spent at positions",
+        #     fmt="o",
+        #     color="#0000a9",
+        # )
+
+        ax.set_xlabel("Dissociation position")
+        ax.set_ylabel("Dissociation events")
+        ax2.set_ylabel("Proportion of time spent / Relative RRKM rate")
+        plt.xticks(index, counts.index)
+        fig.legend(loc="outside lower center", ncol=2)
+        ax.set_yscale(ax_1[0])
+        ax2.set_yscale(ax_2[0])
+        ax.set_ylim(ax_1[1])
+        ax2.set_ylim(ax_2[1])
+        ax.yaxis.set_major_formatter(PercentFormatter(xmax=1))
+        # ax2.yaxis.set_major_formatter(PercentFormatter(xmax=1))
         plt.show()
 
         plt.clf()
@@ -963,21 +1394,37 @@ class MonteCarlo(Settings):
     def data_tables(self):
         print(f"Data analysis for {self.name}")
         data = self.dissociation_counts
-        data["Dissociated"] = (data["H"] + data["D"]) / data.sum(axis=1)
+        data["Dissociated"] = (data["H"] + data["D"]) / (
+            data["H"] + data["D"] + data["None"]
+        )
         data["%H"] = data["H"] / (data["H"] + data["D"])
         data["%D"] = data["D"] / (data["H"] + data["D"])
 
         print(
             f"Percentage dissociated = {data["Dissociated"].mean():.1%} ± {data["Dissociated"].std():.1%}"
         )
-        combined_std = (
-            data["%H"].std() ** 2 + data["%D"].std() ** 2
-        ) ** 0.5  # TODO: check this
+        combined_std = (data["%H"].std() ** 2 + data["%D"].std() ** 2) ** 0.5
         print(
             f"H/D loss ratio = {data["%H"].mean():.1%}/{data["%D"].mean():.1%} ± {combined_std:.1%}"
         )
-
-        # print(f"H/D loss ratio = {H_dissociated:.1%}/{D_dissociated:.1%} ± {std_H_dissociated:.1%}/{std_D_dissociated:.1%}")
+        ratio = "5%/95%" if self.perdeuterated else "95%/5%"
+        print(f"H/D loss ratio (assuming full scrambling and 50%/50% rates) = {ratio}")
+        if self.perdeuterated:
+            H_alpihatic_chance = 0.1
+            RRKM_ratio = self.ratios.loc["H/D ratio"].mean()
+            H_diss_chance = RRKM_ratio / (RRKM_ratio + 1)
+            H_loss_chance = H_alpihatic_chance * H_diss_chance
+            print(
+                f"H/D loss ratio (assuming full scrambling and RRKM ratios) = {H_loss_chance:.2%}/{1-H_loss_chance:.2%}\n"
+            )
+        else:
+            D_alpihatic_chance = 0.1
+            RRKM_ratio = self.ratios.loc["H/D ratio"].mean()
+            D_diss_chance = 1 - (RRKM_ratio / (RRKM_ratio + 1))
+            D_loss_chance = D_alpihatic_chance * D_diss_chance
+            print(
+                f"H/D loss ratio (assuming full scrambling and RRKM ratios) = {1-D_loss_chance:.2%}/{D_loss_chance:.2%}\n"
+            )
 
         data = self.data.dropna(subset=["Diss pos"])
         print(f"Median dissociation time = {Quantity(data['Diss time'].median(), 's')}")
@@ -1013,16 +1460,17 @@ class MonteCarlo(Settings):
         print(f"Debugging: {data["% Time"].mean():.2%}, {data["% Time"].std():.2%}")
 
         if not self.perdeuterated:
+            print(f"{(data["HH time"] * 9).mean()/data["Diss time"].mean()}")
             print(
-                f"HH mean relative time: {data["%HH time"].mean():.1%} ± {data["%HH time"].std():.1%}"
+                f"HH mean relative time: {data["%HH time"].mean():.1%} ± {data["%HH time"].std():.1%} / Median: {data["%HH time"].median():.1%}"
             )
         else:
             print(
-                f"DD mean relative time: {data["%DD time"].mean():.1%} ± {data["%DD time"].std():.1%}"
+                f"DD mean relative time: {data["%DD time"].mean():.1%} ± {data["%DD time"].std():.1%} / Median: {data["%DD time"].median():.1%}"
             )
-
+        print(f"{(data["HD time"]).mean()/data["Diss time"].mean()}")
         print(
-            f"HD mean relative time: {data["%HD time"].mean():.1%} ± {data["%HD time"].std():.1%}"
+            f"HD mean relative time: {data["%HD time"].mean():.1%} ± {data["%HD time"].std():.1%} / Median: {data["%HD time"].median():.1%}"
         )
         print("")
 
@@ -1064,4 +1512,87 @@ class DissociationAnalysis(Settings):
         plt.ylabel("Occurrences")
         plt.xticks(index, alpha_positions.mean().index)
         plt.legend()
+        plt.show()
+
+    def histogram(self):
+
+        alpha_positions = self.alpha.dissociation_raw.sum()
+        beta_positions = self.beta.dissociation_raw.sum()
+
+        symmetries = {}
+        for key, value in self.alpha.symmetries.items():
+            if isinstance(value, list):
+                for v in value:
+                    symmetries[v] = key
+            else:
+                symmetries[value] = key
+
+        df = pd.DataFrame(list(alpha_positions.items()), columns=["Position", "Value"])
+        df["Symmetrical Position"] = (
+            df["Position"].map(symmetries).fillna(df["Position"]).astype(int)
+        )
+        alpha = df.groupby("Symmetrical Position")["Value"].agg(["mean", "std"])
+
+        print(df)
+
+        df = pd.DataFrame(list(beta_positions.items()), columns=["Position", "Value"])
+        df["Symmetrical Position"] = (
+            df["Position"].map(symmetries).fillna(df["Position"]).astype(int)
+        )
+        beta = df.groupby("Symmetrical Position")["Value"].agg(["mean", "std"])
+
+        bar_width = 0.4  # Width of the bars
+        index = np.arange(len(alpha["mean"].index))  # The label locations
+
+        plt.figure(figsize=self.figsize, dpi=self.dpi)
+        plt.bar(
+            index - bar_width / 2,
+            alpha["mean"],
+            bar_width,
+            yerr=alpha["std"],
+            label=self.alpha.name,
+            capsize=5,
+            color="dimgray",
+        )
+        plt.bar(
+            index + bar_width / 2,
+            beta["mean"],
+            bar_width,
+            yerr=beta["std"],
+            label=self.beta.name,
+            capsize=5,
+            color="darkgray",
+        )
+
+        plt.xlabel("Dissociation position")
+        plt.ylabel("Occurrences")
+        plt.xticks(index, alpha["mean"].index)
+        plt.legend()
+        plt.show()
+
+    def histogram_time(self):
+        alpha_data = self.alpha.data.dropna(subset=["Diss pos"])["Diss time"]
+        beta_data = self.beta.data.dropna(subset=["Diss pos"])["Diss time"]
+
+        plt.figure(figsize=self.figsize, dpi=self.dpi)
+        plt.hist(alpha_data, bins=128, color="dimgray", alpha=0.5, label=self.alpha.name)
+        plt.hist(beta_data, bins=128, color="darkgray", alpha=0.5, label=self.beta.name)
+        plt.xlabel("Dissociation time [s]")
+        plt.ylabel("Occurrences")
+        plt.legend()
+        plt.gca().xaxis.set_major_formatter(ticker.ScalarFormatter(useMathText=True))
+        plt.gca().ticklabel_format(style="sci", axis="x", scilimits=(0, 0))
+        plt.show()
+
+    def histogram_hops(self):
+        alpha_data = self.alpha.data.dropna(subset=["Diss pos"])["# hops"]
+        beta_data = self.beta.data.dropna(subset=["Diss pos"])["# hops"]
+
+        plt.figure(figsize=self.figsize, dpi=self.dpi)
+        plt.hist(alpha_data, bins=128, color="dimgray", alpha=0.5, label=self.alpha.name)
+        plt.hist(beta_data, bins=128, color="darkgray", alpha=0.5, label=self.beta.name)
+        plt.xlabel("Total number of scrambling hops")
+        plt.ylabel("Occurrences")
+        plt.legend()
+        plt.ticklabel_format(style="sci", axis="x", scilimits=(0, 0))
         plt.show()
