@@ -132,7 +132,7 @@ class RRKM(Settings):
 
 
     def plot_pairs(
-        self, subset: str, title: str = "", ylim: list = [], xlim: list = [0.0, 5.2]
+        self, subset: str, title: str = "", ylim: list = [], xlim: list = [0.0, 5.2], steps: float = 0.4,
     ):
         """
         Generate plots for pairs of data files.
@@ -165,7 +165,7 @@ class RRKM(Settings):
 
             if len(xlim) > 0:
                 plt.xlim(xlim)
-                plt.xticks(np.arange(xlim[0], xlim[1] + 0.4, 0.4))
+                plt.xticks(np.arange(xlim[0], xlim[1] + steps, steps))
 
             plt.title(title)
             self._plot_plot()
@@ -392,15 +392,15 @@ class MonteCarlo(Settings):
         minimum = min(factors.values())
         factors = {str(k): int(v/minimum) for k, v in factors.items()}
         
-        print(summed_time_results.keys(), factors.keys())
+        # print(summed_time_results.keys(), factors.keys())
 
         for key, factor in factors.items():
             summed_time_results[str(key)] /= factor
             summed_occurrence_results[str(key)] /= factor
 
 
-        summed_time_results = summed_time_results.div(summed_time_results.sum(axis=1), axis=0) # TODO: does this normalize the entire dataset or per row
-        summed_occurrence_results = summed_occurrence_results.div(summed_occurrence_results.sum(axis=1), axis=0)
+        # summed_time_results = summed_time_results.div(summed_time_results.sum(axis=1), axis=0) # TODO: does this normalize the entire dataset or per row
+        # summed_occurrence_results = summed_occurrence_results.div(summed_occurrence_results.sum(axis=1), axis=0)
 
         return summed_time_results if time else summed_occurrence_results
 
@@ -600,16 +600,17 @@ class MonteCarlo(Settings):
             label="H",
             color="dimgray",
         )
-        plt.scatter(
-            index,
-            self.ratios.loc["D"],
-            label="D",
-            color="darkgray",
-        )
+        # plt.scatter(
+        #     index,
+        #     self.ratios.loc["D"],
+        #     label="D",
+        #     color="darkgray",
+        # )
         plt.xlabel("Dissociation position")
         plt.ylabel(f"Relative dissociation rate at {energy} eV")
         plt.xticks(index, self.ratios.loc["H"].keys())
         plt.legend()
+        plt.ylim(0,1.1)
         plt.yscale(yscale)
         plt.show()
 
@@ -618,8 +619,8 @@ class MonteCarlo(Settings):
     def histogram_position_times(self, mol: list = ["H", "D"]):
         results = self.position_times(mol)
 
-        mean_positions = results.mean()
-        std_positions = results.std()
+        mean_positions = results.sum()
+        std_positions = np.sqrt(results.sum())
 
         if "8a" in mean_positions.index and "10a" in mean_positions.index:
             mean_positions["10a"] += mean_positions["8a"]
@@ -640,52 +641,52 @@ class MonteCarlo(Settings):
         plt.bar(
             index,
             mean_positions.values,
-            yerr=std_positions.values,
+            # yerr=std_positions.values,
             capsize=5,
             color="dimgray",
         )
         plt.xlabel("Position")
-        plt.ylabel("Time spent")
+        plt.ylabel("Total time spent [s]")
         plt.xticks(index, mean_positions.index)
-        ax = plt.gca()
-        ax.yaxis.set_major_formatter(PercentFormatter(xmax=1))
+        # ax = plt.gca()
+        # ax.yaxis.set_major_formatter(PercentFormatter(xmax=1))
         plt.show()
 
-        bar_width = 0.4
+        # bar_width = 0.4
 
-        position_times_H = self.position_times("H")
-        position_times_D = self.position_times("D")
+        # position_times_H = self.position_times("H")
+        # position_times_D = self.position_times("D")
 
-        aligned_H, aligned_D = position_times_H.align(position_times_D, fill_value=0)
+        # aligned_H, aligned_D = position_times_H.align(position_times_D, fill_value=0)
 
-        index = np.arange(len(aligned_H.mean().index))
+        # index = np.arange(len(aligned_H.sum().index))
 
-        plt.figure(figsize=self.figsize, dpi=self.dpi)
-        plt.bar(
-            index - bar_width / 2,
-            aligned_H.mean(),
-            bar_width,
-            yerr=aligned_H.std(),
-            label="H",
-            color="dimgray",
-        )
-        plt.bar(
-            index + bar_width / 2,
-            aligned_D.mean(),
-            bar_width,
-            yerr=aligned_D.std(),
-            label="D",
-            color="darkgray",
-        )
-        plt.xlabel("Position")
-        plt.ylabel("Time spent")
-        plt.xticks(index, aligned_H.keys())
-        plt.legend()
-        ax = plt.gca()
-        ax.yaxis.set_major_formatter(PercentFormatter(xmax=1))
-        plt.show()
+        # plt.figure(figsize=self.figsize, dpi=self.dpi)
+        # plt.bar(
+        #     index - bar_width / 2,
+        #     aligned_H.sum(),
+        #     bar_width,
+        #     # yerr=aligned_H.std(),
+        #     label="H",
+        #     color="dimgray",
+        # )
+        # plt.bar(
+        #     index + bar_width / 2,
+        #     aligned_D.sum(),
+        #     bar_width,
+        #     # yerr=aligned_D.std(),
+        #     label="D",
+        #     color="darkgray",
+        # )
+        # plt.xlabel("Position")
+        # plt.ylabel("Time spent [s]")
+        # plt.xticks(index, aligned_H.keys())
+        # plt.legend()
+        # # ax = plt.gca()
+        # # ax.yaxis.set_major_formatter(PercentFormatter(xmax=1))
+        # plt.show()
 
-        plt.clf()
+        # plt.clf()
 
     def bar_hops(self, regex: str):
         df = self.hops.filter(regex=regex)
@@ -700,13 +701,13 @@ class MonteCarlo(Settings):
 
     def histogram_time(self):
         data = self.data.dropna(subset=["Diss pos"])
-        data = data["Diss time"]  # * 1000
+        data = data["Diss time"]  * 1000
         plt.figure(figsize=self.figsize, dpi=self.dpi)
         plt.hist(data, bins=128, color="dimgray")
-        plt.xlabel("Dissociation time [s]")
-        plt.ylabel("Occurences")
+        plt.xlabel("Dissociation time [ms]")
+        plt.ylabel("Frequency")
         plt.gca().xaxis.set_major_formatter(ticker.ScalarFormatter(useMathText=True))
-        plt.gca().ticklabel_format(style="sci", axis="x", scilimits=(0, 0))
+        # plt.gca().ticklabel_format(style="sci", axis="x", scilimits=(0, 0))
         plt.show()
 
     def histogram_time_kde(self, filter="Diss time"):
@@ -764,7 +765,7 @@ class MonteCarlo(Settings):
         plt.figure(figsize=self.figsize, dpi=self.dpi)
         plt.hist(data["# hops"], bins=128, color="dimgray")
         plt.xlabel("Total number of scrambling hops")
-        plt.ylabel("Number of iterations")
+        plt.ylabel("Frequency")
         plt.ticklabel_format(style="sci", axis="x", scilimits=(0, 0))
         plt.show()
 
@@ -779,7 +780,7 @@ class MonteCarlo(Settings):
         axs[1].hist(data["# H hops"], bins=128, label="H hops", color="darkgray")
 
         fig.supxlabel("Number of scrambling hops")
-        fig.supylabel("Number of iterations")
+        fig.supylabel("Frequency")
 
         for ax in axs:
             ax.label_outer()
@@ -821,7 +822,7 @@ class MonteCarlo(Settings):
         ax2.yaxis.tick_right()
 
         fig.supxlabel("Percentage time spent [%]")
-        fig.supylabel("Occurrences")
+        fig.supylabel("Frequency")
         fig.subplots_adjust(left=0.15)
 
         d = 0.02
@@ -886,7 +887,7 @@ class MonteCarlo(Settings):
             color="dimgray",
         )
         plt.xlabel("Dissociation position")
-        plt.ylabel("Occurrence")
+        plt.ylabel("Dissociation events")
         plt.xticks(index, result.index)
         plt.show()
 
@@ -1095,7 +1096,7 @@ class MonteCarlo(Settings):
         )
 
         plt.xlabel("Dissociation position")
-        plt.ylabel("Relative occurences")
+        plt.ylabel("Dissociation events")
         plt.xticks(index, counts.index)
         ax = plt.gca()
         ax.yaxis.set_major_formatter(PercentFormatter(xmax=1))
@@ -1105,20 +1106,20 @@ class MonteCarlo(Settings):
         plt.clf()
 
         """ Plot Occurence divided by time spent on position """
-        result = pd.DataFrame()
-        for mol in ["H", "D"]:
-            result[f"Error_{mol}"] = counts[f"Error_{mol}"]
-            for pos in counts.index:
-                result.loc[pos, mol] = (
-                    counts.loc[pos, mol] / self.position_times(mol).mean().loc[str(pos)]
-                )
-            sum = result[mol].sum()
-            result[mol] /= sum
-            # print(counts[f"Error_{mol}"])
-            counts[f"Error_{mol}"] = np.sqrt(
-                (counts[f"Error_{mol}"] / sum) ** 2
-                + (result[mol] * np.sqrt(sum) / sum**2) ** 2
-            )
+        # result = pd.DataFrame()
+        # for mol in ["H", "D"]:
+        #     result[f"Error_{mol}"] = counts[f"Error_{mol}"]
+        #     for pos in counts.index:
+        #         result.loc[pos, mol] = (
+        #             counts.loc[pos, mol] / self.position_times(mol).mean().loc[str(pos)]
+        #         )
+        #     sum = result[mol].sum()
+        #     result[mol] /= sum
+        #     # print(counts[f"Error_{mol}"])
+        #     counts[f"Error_{mol}"] = np.sqrt(
+        #         (counts[f"Error_{mol}"] / sum) ** 2
+        #         + (result[mol] * np.sqrt(sum) / sum**2) ** 2
+        #     )
             # print(counts[f"Error_{mol}"])
 
         # plt.figure(figsize=self.figsize, dpi=self.dpi)
@@ -1149,14 +1150,14 @@ class MonteCarlo(Settings):
         # plt.clf()
 
         """ Plot Occurence divided by reaction rate """
-        occurence_rate = pd.DataFrame()
+        # occurence_rate = pd.DataFrame()
 
-        for mol in ["H", "D"]:
-            for pos in counts.index:
-                occurence_rate.loc[pos, mol] = (
-                    counts.loc[pos, mol] / self.ratios.loc[mol, pos]
-                )
-            occurence_rate[mol] /= occurence_rate[mol].sum()
+        # for mol in ["H", "D"]:
+        #     for pos in counts.index:
+        #         occurence_rate.loc[pos, mol] = (
+        #             counts.loc[pos, mol] / self.ratios.loc[mol, pos]
+        #         )
+        #     occurence_rate[mol] /= occurence_rate[mol].sum()
 
         # plt.figure(figsize=self.figsize, dpi=self.dpi)
         # plt.bar(
@@ -1184,10 +1185,23 @@ class MonteCarlo(Settings):
         # plt.clf()
 
         """ Plot Occurence divided by reaction rate and time spent on position """
+        # Divide by time spent
+        # print(counts)
         for mol in ["H", "D"]:
+            max_position_time = self.position_times(mol).sum().max()
             for pos in counts.index:
-                result.loc[pos, mol] = result.loc[pos, mol] / self.ratios.loc[mol, pos]
-            result[mol] /= result[mol].sum()
+                value = self.position_times(mol).sum().loc[str(pos)]
+                # counts.loc[pos, mol] /= (value / max_position_time)
+                value_error = np.sqrt(value)
+                max_position_time_error = np.sqrt(max_position_time)
+                error = (value / max_position_time) * np.sqrt((value_error / value) ** 2 + (max_position_time_error / max_position_time) ** 2)
+                counts.loc[pos, mol] /= (value / max_position_time)
+                # counts.loc[pos, f"Error_{mol}"] = counts.loc[pos, f"Error_{mol}"] * error / (value / max_position_time)
+                # counts.loc[pos, f"Error_{mol}"] = counts.loc[pos, mol] * np.sqrt((error/))
+                counts.loc[pos, mol] /= self.ratios.loc[mol, pos]
+            counts[mol] /= counts[mol].sum()
+        # print(counts)
+
 
         # def baseline(x):
         #     return x - 1/len(occurence_rate.index)
@@ -1197,26 +1211,26 @@ class MonteCarlo(Settings):
         # print(result)
 
         plt.figure(figsize=self.figsize, dpi=self.dpi)
-        plt.axhline(y=1/len(result["D"].values), color='black', linestyle='--', linewidth=1)
+        plt.axhline(y=1/len(counts["D"].values), color='black', linestyle='--', linewidth=1)
         plt.bar(
             index - bar_width / 2,
-            result["H"].values,
+            counts["H"].values,
             bar_width,
-            yerr=result["Error_H"].values,
+            yerr=counts["Error_H"].values,
             label="H",
             color="dimgray",
         )
         plt.bar(
             index + bar_width / 2,
-            result["D"].values,
+            counts["D"].values,
             bar_width,
-            yerr=result["Error_D"].values,
+            yerr=counts["Error_D"].values,
             label="D",
             color="darkgray",
         )
         plt.xlabel("Dissociation position")
-        plt.ylabel("Occurrence divided by rate and time")
-        plt.xticks(index, result.index)
+        plt.ylabel("Dissociation events divided by rate and time")
+        plt.xticks(index, counts.index)
         ax = plt.gca()
         ax.yaxis.set_major_formatter(PercentFormatter(xmax=1))
         plt.legend()
@@ -1285,14 +1299,14 @@ class MonteCarlo(Settings):
         }
 
         position_times = {}
-        maximum = max(max(self.position_times("H", True).mean()), max(self.position_times("D", True).mean()))
+        maximum = max(max(self.position_times("H", True).sum()), max(self.position_times("D", True).sum()))
         # print(maximum)
         for mol in ["H", "D"]:
             position_times[mol] = []
-            mol_data = self.position_times(mol).mean()
+            mol_data = self.position_times(mol).sum()
             for pos in self.symmetries.keys():
                 position_times[mol].append(
-                    mol_data.loc[str(pos)] # / maximum
+                    mol_data.loc[str(pos)] / maximum # / maximum
                 )
 
         position_occurences = {}
@@ -1349,7 +1363,7 @@ class MonteCarlo(Settings):
         ax2.errorbar(
             index - bar_width / 2,
             position_times["H"],
-            label="Time spent at position",
+            label="Relative time spent at position",
             fmt="s",
             color="#006900",
         )
@@ -1378,7 +1392,7 @@ class MonteCarlo(Settings):
 
         ax.set_xlabel("Dissociation position")
         ax.set_ylabel("Dissociation events")
-        ax2.set_ylabel("Proportion of time spent / Relative RRKM rate")
+        ax2.set_ylabel("Relative time spent / Relative RRKM rate")
         plt.xticks(index, counts.index)
         fig.legend(loc="outside lower center", ncol=2)
         ax.set_yscale(ax_1[0])
@@ -1578,7 +1592,7 @@ class DissociationAnalysis(Settings):
         plt.hist(alpha_data, bins=128, color="dimgray", alpha=0.5, label=self.alpha.name)
         plt.hist(beta_data, bins=128, color="darkgray", alpha=0.5, label=self.beta.name)
         plt.xlabel("Dissociation time [s]")
-        plt.ylabel("Occurrences")
+        plt.ylabel("Frequency")
         plt.legend()
         plt.gca().xaxis.set_major_formatter(ticker.ScalarFormatter(useMathText=True))
         plt.gca().ticklabel_format(style="sci", axis="x", scilimits=(0, 0))
