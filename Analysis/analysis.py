@@ -102,7 +102,7 @@ class RRKM(Settings):
         plt.title(title)
         self._plot_plot(sort_legend_by=sort_legend_by)
 
-    def quantify(self, param: str,filter_function=None, energy: float = 4.66):
+    def quantify(self, param: str, filter_function=None, energy: float = 4.66):
         subset = self.rates.get(param)
         subset.sort()
 
@@ -113,7 +113,7 @@ class RRKM(Settings):
 
         for i, filename in enumerate(subset):
             filepath = os.path.join(self.folder, filename)
-            header = open(filepath, 'r').readline().strip()
+            header = open(filepath, "r").readline().strip()
             barrier = float(re.search(r"E0=([0-9.]+)", header).group(1))
             # print(barriers)
             data = np.loadtxt(filepath, skiprows=2)
@@ -130,9 +130,13 @@ class RRKM(Settings):
 
         return result
 
-
     def plot_pairs(
-        self, subset: str, title: str = "", ylim: list = [], xlim: list = [0.0, 5.2], steps: float = 0.4,
+        self,
+        subset: str,
+        title: str = "",
+        ylim: list = [],
+        xlim: list = [0.0, 5.2],
+        steps: float = 0.4,
     ):
         """
         Generate plots for pairs of data files.
@@ -251,7 +255,7 @@ class RRKM(Settings):
             parts = base_name.split("diss")
             return f"{base_name[0]} {parts[0][1:]}"
         return label
-    
+
     def _parse_label_tuple(self, label):
         base_name = os.path.splitext(label)[0]
         if "to" in base_name:
@@ -350,13 +354,12 @@ class MonteCarlo(Settings):
             summed_time_results = pd.DataFrame(index=time_results.index)
             summed_occurrence_results = pd.DataFrame(index=occurrence_results.index)
 
-
         for num in set(
             col[1:] for col in time_results.columns if col.startswith(("H", "D"))
         ):
-            summed_time_results[f"{num}"] = time_results.get(f"H{num}", 0) + time_results.get(
-                f"D{num}", 0
-            )
+            summed_time_results[f"{num}"] = time_results.get(
+                f"H{num}", 0
+            ) + time_results.get(f"D{num}", 0)
             summed_occurrence_results[f"{num}"] = occurrence_results.get(
                 f"H{num}", 0
             ) + occurrence_results.get(f"D{num}", 0)
@@ -379,7 +382,9 @@ class MonteCarlo(Settings):
                     value = [value]
                 values = [str(x) for x in value]
                 if origin in values:
-                    summed_occurrence_results[str(key)] += summed_occurrence_results[str(origin)]
+                    summed_occurrence_results[str(key)] += summed_occurrence_results[
+                        str(origin)
+                    ]
                     summed_occurrence_results.drop(
                         columns=[origin], inplace=True
                     )  # Drop the column
@@ -388,16 +393,15 @@ class MonteCarlo(Settings):
         for key, value in self.symmetries.items():
             if isinstance(value, int):
                 value = [value]
-            factors[key] = 1+len(value)
+            factors[key] = 1 + len(value)
         minimum = min(factors.values())
-        factors = {str(k): int(v/minimum) for k, v in factors.items()}
-        
+        factors = {str(k): int(v / minimum) for k, v in factors.items()}
+
         # print(summed_time_results.keys(), factors.keys())
 
         for key, factor in factors.items():
             summed_time_results[str(key)] /= factor
             summed_occurrence_results[str(key)] /= factor
-
 
         # summed_time_results = summed_time_results.div(summed_time_results.sum(axis=1), axis=0) # TODO: does this normalize the entire dataset or per row
         # summed_occurrence_results = summed_occurrence_results.div(summed_occurrence_results.sum(axis=1), axis=0)
@@ -430,7 +434,7 @@ class MonteCarlo(Settings):
         rates.loc["Avg"] /= rates.loc["Avg"].max()
 
         return rates
-    
+
     def formatted_ratios(self):
         yaml = Input.Input_reader(self.input)
 
@@ -458,7 +462,6 @@ class MonteCarlo(Settings):
         rates.loc["Avg"] /= rates.loc["Avg"].max()
 
         return rates
-
 
     def process_data(self):
         data_frames = []
@@ -509,7 +512,9 @@ class MonteCarlo(Settings):
 
         df = pd.DataFrame(dissociation_positions)
 
-        dissociation_positions_merged = pd.DataFrame(0, index=df.index, columns=self.symmetries.keys())
+        dissociation_positions_merged = pd.DataFrame(
+            0, index=df.index, columns=self.symmetries.keys()
+        )
 
         for key in self.symmetries.keys():
             dissociation_positions_merged[key] = df[key]
@@ -610,7 +615,7 @@ class MonteCarlo(Settings):
         plt.ylabel(f"Relative dissociation rate at {energy} eV")
         plt.xticks(index, self.ratios.loc["H"].keys())
         plt.legend()
-        plt.ylim(0,1.1)
+        plt.ylim(0, 1.1)
         plt.yscale(yscale)
         plt.show()
 
@@ -624,10 +629,11 @@ class MonteCarlo(Settings):
 
         if "8a" in mean_positions.index and "10a" in mean_positions.index:
             mean_positions["10a"] += mean_positions["8a"]
-            std_positions["10a"] = np.sqrt(std_positions["10a"]**2 + std_positions["8a"]**2)
+            std_positions["10a"] = np.sqrt(
+                std_positions["10a"] ** 2 + std_positions["8a"] ** 2
+            )
             mean_positions = mean_positions.drop("8a")
             std_positions = std_positions.drop("8a")
-
 
         index = np.arange(len(mean_positions.index))
 
@@ -635,7 +641,6 @@ class MonteCarlo(Settings):
         mean_positions = mean_positions[sorted_index]
         std_positions = std_positions[sorted_index]
         index = np.arange(len(sorted_index))
-
 
         plt.figure(figsize=self.figsize, dpi=self.dpi)
         plt.bar(
@@ -701,7 +706,7 @@ class MonteCarlo(Settings):
 
     def histogram_time(self):
         data = self.data.dropna(subset=["Diss pos"])
-        data = data["Diss time"]  * 1000
+        data = data["Diss time"] * 1000
         plt.figure(figsize=self.figsize, dpi=self.dpi)
         plt.hist(data, bins=128, color="dimgray")
         plt.xlabel("Dissociation time [ms]")
@@ -1120,7 +1125,7 @@ class MonteCarlo(Settings):
         #         (counts[f"Error_{mol}"] / sum) ** 2
         #         + (result[mol] * np.sqrt(sum) / sum**2) ** 2
         #     )
-            # print(counts[f"Error_{mol}"])
+        # print(counts[f"Error_{mol}"])
 
         # plt.figure(figsize=self.figsize, dpi=self.dpi)
         # plt.bar(
@@ -1194,14 +1199,16 @@ class MonteCarlo(Settings):
                 # counts.loc[pos, mol] /= (value / max_position_time)
                 value_error = np.sqrt(value)
                 max_position_time_error = np.sqrt(max_position_time)
-                error = (value / max_position_time) * np.sqrt((value_error / value) ** 2 + (max_position_time_error / max_position_time) ** 2)
-                counts.loc[pos, mol] /= (value / max_position_time)
+                error = (value / max_position_time) * np.sqrt(
+                    (value_error / value) ** 2
+                    + (max_position_time_error / max_position_time) ** 2
+                )
+                counts.loc[pos, mol] /= value / max_position_time
                 # counts.loc[pos, f"Error_{mol}"] = counts.loc[pos, f"Error_{mol}"] * error / (value / max_position_time)
                 # counts.loc[pos, f"Error_{mol}"] = counts.loc[pos, mol] * np.sqrt((error/))
                 counts.loc[pos, mol] /= self.ratios.loc[mol, pos]
             counts[mol] /= counts[mol].sum()
         # print(counts)
-
 
         # def baseline(x):
         #     return x - 1/len(occurence_rate.index)
@@ -1211,7 +1218,9 @@ class MonteCarlo(Settings):
         # print(result)
 
         plt.figure(figsize=self.figsize, dpi=self.dpi)
-        plt.axhline(y=1/len(counts["D"].values), color='black', linestyle='--', linewidth=1)
+        plt.axhline(
+            y=1 / len(counts["D"].values), color="black", linestyle="--", linewidth=1
+        )
         plt.bar(
             index - bar_width / 2,
             counts["H"].values,
@@ -1238,7 +1247,9 @@ class MonteCarlo(Settings):
 
         plt.clf()
 
-    def plot_dissociation_details(self, ax_1=('linear', (0,0.5)), ax_2=('linear', (0,1.1))):
+    def plot_dissociation_details(
+        self, ax_1=("linear", (0, 0.5)), ax_2=("linear", (0, 1.1))
+    ):
         """Compute data"""
         data = self.data.copy()
         data = data[data["Diss atom"].isin(["H", "D"])]
@@ -1292,33 +1303,36 @@ class MonteCarlo(Settings):
             (counts["Error_D"] / sum_D) ** 2
             + (counts["D"] * np.sqrt(sum_D) / sum_D**2) ** 2
         )
-        
+
         ratios = {
-            "H": self.ratios.loc["H"],# / self.ratios.loc["H"].sum(),
-            "D": self.ratios.loc["D"],# / self.ratios.loc["D"].sum(),
+            "H": self.ratios.loc["H"],  # / self.ratios.loc["H"].sum(),
+            "D": self.ratios.loc["D"],  # / self.ratios.loc["D"].sum(),
         }
 
         position_times = {}
-        maximum = max(max(self.position_times("H", True).sum()), max(self.position_times("D", True).sum()))
+        maximum = max(
+            max(self.position_times("H", True).sum()),
+            max(self.position_times("D", True).sum()),
+        )
         # print(maximum)
         for mol in ["H", "D"]:
             position_times[mol] = []
             mol_data = self.position_times(mol).sum()
             for pos in self.symmetries.keys():
                 position_times[mol].append(
-                    mol_data.loc[str(pos)] / maximum # / maximum
+                    mol_data.loc[str(pos)] / maximum  # / maximum
                 )
 
         position_occurences = {}
-        maximum = max(max(self.position_times("H", False).mean()), max(self.position_times("D", False).mean()))
+        maximum = max(
+            max(self.position_times("H", False).mean()),
+            max(self.position_times("D", False).mean()),
+        )
         for mol in ["H", "D"]:
             position_occurences[mol] = []
             mol_data = self.position_times(mol, False).mean()
             for pos in self.symmetries.keys():
-                position_occurences[mol].append(
-                    mol_data.loc[str(pos)] / maximum
-                )
-
+                position_occurences[mol].append(mol_data.loc[str(pos)] / maximum)
 
         fig, ax = plt.subplots(
             figsize=(self.figsize[0], self.figsize[1]),
@@ -1589,7 +1603,9 @@ class DissociationAnalysis(Settings):
         beta_data = self.beta.data.dropna(subset=["Diss pos"])["Diss time"]
 
         plt.figure(figsize=self.figsize, dpi=self.dpi)
-        plt.hist(alpha_data, bins=128, color="dimgray", alpha=0.5, label=self.alpha.name)
+        plt.hist(
+            alpha_data, bins=128, color="dimgray", alpha=0.5, label=self.alpha.name
+        )
         plt.hist(beta_data, bins=128, color="darkgray", alpha=0.5, label=self.beta.name)
         plt.xlabel("Dissociation time [s]")
         plt.ylabel("Frequency")
@@ -1603,7 +1619,9 @@ class DissociationAnalysis(Settings):
         beta_data = self.beta.data.dropna(subset=["Diss pos"])["# hops"]
 
         plt.figure(figsize=self.figsize, dpi=self.dpi)
-        plt.hist(alpha_data, bins=128, color="dimgray", alpha=0.5, label=self.alpha.name)
+        plt.hist(
+            alpha_data, bins=128, color="dimgray", alpha=0.5, label=self.alpha.name
+        )
         plt.hist(beta_data, bins=128, color="darkgray", alpha=0.5, label=self.beta.name)
         plt.xlabel("Total number of scrambling hops")
         plt.ylabel("Occurrences")
