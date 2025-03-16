@@ -5,6 +5,7 @@ Perform Monte Carlo simulation of scrambling and photodissociation reactions on 
 Associated research:
 
 1. [Carels, E. J. Isotopic Effects Revealed Upon Photolysis of PAHs. (Universiteit van Amsterdam, 2023).](https://scripties.uba.uva.nl/search?id=record_53847)
+2. [de Groot, T. Modelling the Photochemistry of Polycyclic Aromatic Hydrocarbons. (Universiteit van Amsterdam, 2025).](https://scripties.uba.uva.nl/search?id=record_55720)
 
 ## Installation
 
