@@ -73,7 +73,7 @@ Define the maximum simulation time (s):
 Maximum time: 0.02
 ```
 
-Define error handling (w for warming, q for quit).
+Define error handling (w for warning, q for quit).
 
 ```yaml
 Error handling: w
