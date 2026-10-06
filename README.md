@@ -1,5 +1,7 @@
 # PAH-MC
 
+This repository has been archived due to a migration to [Codeberg](https://codeberg.org/timdegroot/PAHMC).
+
 Perform Monte Carlo simulation of scrambling and photodissociation reactions on PAHs.
 
 Associated research:
